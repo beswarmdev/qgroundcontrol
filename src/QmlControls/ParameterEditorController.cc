@@ -3,6 +3,8 @@
 #include <limits>
 #include <type_traits>
 
+#include <QtGui/QGuiApplication>
+
 #include "AppMessages.h"
 #include "AppSettings.h"
 #include "ParameterManager.h"
@@ -716,7 +718,7 @@ bool ParameterEditorController::buildDiffFromFile(const QString& filename)
     file.close();
 
     if (diffParsedCount == 0) {
-        QGC::showAppMessage(tr("No valid parameters found in file. Check that the file is in QGC or Mission Planner format."));
+        QGC::showAppMessage(tr("No valid parameters found in file. Check that the file is in %1 or Mission Planner format.").arg(QGuiApplication::applicationDisplayName()));
         return false;
     }
 

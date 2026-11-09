@@ -29,6 +29,7 @@
 
 #include <QtCore/QJsonArray>
 #include <QtCore/QJsonDocument>
+#include <QtGui/QGuiApplication>
 #include <QtMath>
 
 #define UPDATE_TIMEOUT 5000 ///< How often we check for bounding box changes
@@ -810,7 +811,7 @@ bool MissionController::_loadTextMissionFile(QTextStream& stream, QmlObjectListM
             }
         }
     } else {
-        errorString = tr("The mission file is not compatible with this version of %1.").arg(QCoreApplication::applicationName());
+        errorString = tr("The mission file is not compatible with this version of %1.").arg(QGuiApplication::applicationDisplayName());
         return false;
     }
 

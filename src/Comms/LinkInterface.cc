@@ -212,6 +212,6 @@ void LinkInterface::reportMavlinkV1Traffic()
     const QString message = tr("MAVLink v1 traffic detected on link '%1'. "
                                "%2 only supports MAVLink v2. "
                                "Please ensure your vehicle is configured to use MAVLink v2.")
-                                .arg(linkName).arg(qgcApp()->applicationName());
+                                .arg(linkName).arg(qgcApp()->applicationDisplayName());
     QGC::showAppMessage(message);
 }

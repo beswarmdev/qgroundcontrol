@@ -23,6 +23,7 @@
 
 #include <QtCore/QApplicationStatic>
 #include <QtCore/QTimer>
+#include <QtGui/QGuiApplication>
 
 QGC_LOGGING_CATEGORY(MultiVehicleManagerLog, "Vehicle.MultiVehicleManager")
 
@@ -113,7 +114,7 @@ void MultiVehicleManager::_vehicleHeartbeatInfo(LinkInterface* link, quint32 veh
                                     << vehicleType;
 
     if (vehicleId == MAVLinkProtocol::instance()->getSystemId()) {
-        QGC::showAppMessage(tr("Warning: A vehicle is using the same system id as %1: %2").arg(QCoreApplication::applicationName()).arg(vehicleId));
+        QGC::showAppMessage(tr("Warning: A vehicle is using the same system id as %1: %2").arg(QGuiApplication::applicationDisplayName()).arg(vehicleId));
     }
 
     Vehicle *const vehicle = new Vehicle(link, vehicleId, componentId, (MAV_AUTOPILOT)vehicleFirmwareType, (MAV_TYPE)vehicleType, this);

@@ -8,6 +8,7 @@
 #include <QtCore/QRegularExpression>
 #include <QtCore/QTextStream>
 #include <QtCore/QVersionNumber>
+#include <QtGui/QGuiApplication>
 
 #include "AppSettings.h"
 #include "Fact.h"
@@ -117,7 +118,7 @@ void QGCVersionCheck::_downloadComplete(bool success, const QString& localFile, 
         const QString url = QGCCorePlugin::instance()->stableDownloadUrl();
         qgcApp()->showAppMessage(
             tr("There is a newer version of %1 available. You can download it from <a href=\"%2\">%2</a>.")
-                .arg(QCoreApplication::applicationName(), url),
+                .arg(QGuiApplication::applicationDisplayName(), url),
             tr("New Version Available"));
     }
 }

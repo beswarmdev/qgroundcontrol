@@ -3,6 +3,7 @@
 #include <algorithm>
 
 #include <QtCore/QString>
+#include <QtGui/QGuiApplication>
 
 #include "AppMessages.h"
 #include "MAVLinkLib.h"
@@ -740,7 +741,7 @@ void PX4FirmwarePlugin::_handleAutopilotVersion(Vehicle* vehicle, mavlink_messag
 
         if (notifyUser) {
             instanceData->versionNotified = true;
-            QGC::showAppMessage(tr("QGroundControl supports PX4 Pro firmware Version %1.%2.%3 and above. You are using a version prior to that which will lead to unpredictable results. Please upgrade your firmware.").arg(supportedMajorVersion).arg(supportedMinorVersion).arg(supportedPatchVersion));
+            QGC::showAppMessage(tr("%1 supports PX4 Pro firmware Version %2.%3.%4 and above. You are using a version prior to that which will lead to unpredictable results. Please upgrade your firmware.").arg(QGuiApplication::applicationDisplayName()).arg(supportedMajorVersion).arg(supportedMinorVersion).arg(supportedPatchVersion));
         }
     }
 }

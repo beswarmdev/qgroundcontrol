@@ -29,6 +29,7 @@
 #include <QtCore/QFile>
 #include <QtCore/QStandardPaths>
 #include <QtCore/QVariantAnimation>
+#include <QtGui/QGuiApplication>
 
 QGC_LOGGING_CATEGORY(ParameterManagerLog, "FactSystem.ParameterManager")
 QGC_LOGGING_CATEGORY(ParameterManagerVerbose1Log, "FactSystem.ParameterManager:verbose1")
@@ -1453,7 +1454,7 @@ void ParameterManager::_checkInitialLoadComplete()
         const QString errorMsg = tr("%1 was unable to retrieve the full set of parameters from vehicle %2. "
                                     "This will cause %1 to be unable to display its full user interface. "
                                     "If you are using modified firmware, you may need to resolve any vehicle startup errors to resolve the issue. "
-                                    "If you are using standard firmware, you may need to upgrade to a newer version to resolve the issue.").arg(QCoreApplication::applicationName()).arg(_vehicle->id());
+                                    "If you are using standard firmware, you may need to upgrade to a newer version to resolve the issue.").arg(QGuiApplication::applicationDisplayName()).arg(_vehicle->id());
         qCDebug(ParameterManagerLog) << errorMsg;
         QGC::showAppMessage(errorMsg);
     }
@@ -1509,7 +1510,7 @@ void ParameterManager::_checkOtherComponentsLoadComplete()
     if (MultiVehicleManager::instance()->vehicles()->count() > 1) {
         vehicleIdPrefix = tr("Vehicle %1: ").arg(_vehicle->id());
     }
-    const QString errorMsg = vehicleIdPrefix + tr("%1 was unable to retrieve the full set of parameters from component(s) %2.").arg(QCoreApplication::applicationName(), failedComponentIds.join(QStringLiteral(", ")));
+    const QString errorMsg = vehicleIdPrefix + tr("%1 was unable to retrieve the full set of parameters from component(s) %2.").arg(QGuiApplication::applicationDisplayName(), failedComponentIds.join(QStringLiteral(", ")));
     qCDebug(ParameterManagerLog) << errorMsg;
     QGC::showAppMessage(errorMsg);
 }
@@ -1549,7 +1550,7 @@ void ParameterManager::_paramRequestListTimeout()
     qCDebug(ParameterManagerLog) << _logVehiclePrefix(-1) << "Initial parameter request list retries exhausted, giving up";
     if (!_vehicle->genericFirmware()) {
         const QString errorMsg = tr("Vehicle %1 did not respond to request for parameters. "
-                                    "This will cause %2 to be unable to display its full user interface.").arg(_vehicle->id()).arg(QCoreApplication::applicationName());
+                                    "This will cause %2 to be unable to display its full user interface.").arg(_vehicle->id()).arg(QGuiApplication::applicationDisplayName());
         qCWarning(ParameterManagerLog) << errorMsg;
         QGC::showAppMessage(errorMsg);
     }

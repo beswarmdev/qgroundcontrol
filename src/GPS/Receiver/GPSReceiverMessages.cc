@@ -3,6 +3,8 @@
 #include "GPSReceiver.h"
 #include "GPSReceiverDescriptor.h"
 
+#include <QtGui/QGuiApplication>
+
 namespace {
 
 /// The error of a session that ended with @a error while a reconnect is pending.
@@ -82,12 +84,12 @@ QString sessionEnded(GPSReceiverSessionOutcome outcome, GPSConnectionError error
 
 QString consentRefused(const QString& detail, GPSType family)
 {
-    //: %1 explains the failure; %2 is a receiver manufacturer, such as Quectel
+    //: %1 explains the failure; %2 is a receiver manufacturer, such as Quectel; %3 is the application name
     return GPSReceiver::tr(
                "Receiver configuration failed: %1. Automatic connections never save settings to "
-               "the receiver's flash. To let QGroundControl save the %2 receiver's settings, "
+               "the receiver's flash. To let %3 save the %2 receiver's settings, "
                "connect manually and allow flash save and restart.")
-        .arg(detail, gpsReceiverName(family));
+        .arg(detail, gpsReceiverName(family), QGuiApplication::applicationDisplayName());
 }
 
 QString inputProblem(GPSInputProblem problem, std::optional<GPSType> detected, const QString& endpoint,
