@@ -109,7 +109,7 @@
         {
             "name": "enableStorageLimit",
             "shortDesc": "Automatically delete oldest recordings when the storage limit is exceeded.",
-            "longDesc": "When enabled, old video files will be auto-deleted when the total size of QGC-recorded video exceeds the maximum video storage usage.",
+            "longDesc": "When enabled, old video files will be auto-deleted when the total size of video recorded by BeSwarm Vehicle GS exceeds the maximum video storage usage.",
             "type": "bool",
             "default": false,
             "mobileDefault": true,
@@ -216,7 +216,7 @@
         {
             "name": "disablePixelAspectRatio",
             "shortDesc": "Let the video sink take non-square pixels instead of scaling them to square ones.",
-            "longDesc": "QGC normally has the video sink ask for pixel-aspect-ratio=1/1, so non-square-pixel sources (some RTSP cams, DVB) are scaled instead of rendering geometrically distorted. A few v4l2 drivers without VIDIOC_CROPCAP deadlock negotiation when PAR is forced; enable this option as a workaround. Changing it restarts the video stream.",
+            "longDesc": "BeSwarm Vehicle GS normally has the video sink ask for pixel-aspect-ratio=1/1, so non-square-pixel sources (some RTSP cams, DVB) are scaled instead of rendering geometrically distorted. A few v4l2 drivers without VIDIOC_CROPCAP deadlock negotiation when PAR is forced; enable this option as a workaround. Changing it restarts the video stream.",
             "type": "bool",
             "default": false,
             "label": "Disable pixel-aspect-ratio normalization",

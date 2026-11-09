@@ -92,8 +92,8 @@ QGCGroupBox {
         comboBox.objectName: "rtkReceiverRole"
         comboBox.enabled: root._editable
         note: root.configuredBase
-              ? qsTr("QGroundControl configures a supported receiver as an RTK base station and forwards its RTCM corrections to vehicles.")
-              : qsTr("QGroundControl never configures this receiver. Its NMEA, u-blox UBX or Septentrio SBF position output provides the ground station position. Configure the receiver's output externally and select its existing baud rate. No survey-in status is inferred.")
+              ? qsTr("%1 configures a supported receiver as an RTK base station and forwards its RTCM corrections to vehicles.").arg(QGroundControl.appName)
+              : qsTr("%1 never configures this receiver. Its NMEA, u-blox UBX or Septentrio SBF position output provides the ground station position. Configure the receiver's output externally and select its existing baud rate. No survey-in status is inferred.").arg(QGroundControl.appName)
     }
 
     SwitchField {
@@ -141,7 +141,7 @@ QGCGroupBox {
         fact: root.settings.tcpPort
         enabled: root._editable
         shown: root._tcp
-        note: qsTr("Connect to a receiver's TCP port or a serial-to-TCP bridge. A bridge must already run the receiver link at 115200 baud; QGroundControl cannot change a bridge's rate.")
+        note: qsTr("Connect to a receiver's TCP port or a serial-to-TCP bridge. A bridge must already run the receiver link at 115200 baud; %1 cannot change a bridge's rate.").arg(QGroundControl.appName)
     }
 
     SettingField {
@@ -302,7 +302,7 @@ QGCGroupBox {
 
         GPSNoteLabel {
             objectName: "rtkPersistentConsentWarning"
-            text: root._quectelOnly + qsTr("For this connection only, allow QGroundControl to write requested base role or base-setting changes to receiver flash and restart it. Changes may remain saved even if reconnecting fails. No factory reset is performed. Permission is cleared after each attempt and is never used by automatic connections. To use the receiver as a rover again, restore its role with Quectel QGNSS or $PQTMCFGRCVRMODE,W,1 followed by $PQTMSAVEPAR.")
+            text: root._quectelOnly + qsTr("For this connection only, allow %1 to write requested base role or base-setting changes to receiver flash and restart it. Changes may remain saved even if reconnecting fails. No factory reset is performed. Permission is cleared after each attempt and is never used by automatic connections. To use the receiver as a rover again, restore its role with Quectel QGNSS or $PQTMCFGRCVRMODE,W,1 followed by $PQTMSAVEPAR.").arg(QGroundControl.appName)
         }
     }
 

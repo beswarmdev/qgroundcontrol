@@ -67,7 +67,7 @@
         },
         {
             "name": "sendGCSHeartbeat",
-            "shortDesc": "Periodically transmit heartbeat messages to inform vehicles that QGC is connected.",
+            "shortDesc": "Periodically transmit heartbeat messages to inform vehicles that BeSwarm Vehicle GS is connected.",
             "type": "bool",
             "default": true,
             "label": "Emit heartbeat",

@@ -244,7 +244,7 @@ ColumnLayout {
                 }
 
                 QGCLabel {
-                    text: qsTr("QGC functions do not support shift actions")
+                    text: qsTr("%1 functions do not support shift actions").arg(QGroundControl.appName)
                     width: ScreenTools.defaultFontPixelWidth * 15
                     visible: hasFirmwareSupport && !buttonActionCombo.isFwAction
                     anchors.verticalCenter: parent.verticalCenter

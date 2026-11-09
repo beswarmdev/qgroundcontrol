@@ -22,7 +22,7 @@
         {
             "name": "baseReceiverManufacturers",
             "shortDesc": "Detect automatically identifies the receiver each time it connects, by listening to its output and sending read-only identification queries. Until then the settings of every supported receiver are shown.",
-            "longDesc": "Detect automatically identifies the receiver family on every connection: QGroundControl listens to the receiver's output and sends read-only identification queries at each supported baud rate, then configures the family it found. Until then the settings of every supported receiver are shown. Select a manufacturer to configure only that receiver family.",
+            "longDesc": "Detect automatically identifies the receiver family on every connection: BeSwarm Vehicle GS listens to the receiver's output and sends read-only identification queries at each supported baud rate, then configures the family it found. Until then the settings of every supported receiver are shown. Select a manufacturer to configure only that receiver family.",
             "type": "uint8",
             "enumStrings": "Detect automatically,Trimble,Septentrio,Femtomes,u-blox,Unicore UM980/UM982,Quectel LG290P",
             "enumValues": "0,1,2,3,4,5,6",
@@ -32,7 +32,7 @@
         {
             "name": "connectionType",
             "shortDesc": "Receiver connection",
-            "longDesc": "Serial connects a receiver on a local port. TCP connects a receiver's network port or a serial-to-TCP bridge. UDP listens for the output of a receiver QGroundControl does not configure.",
+            "longDesc": "Serial connects a receiver on a local port. TCP connects a receiver's network port or a serial-to-TCP bridge. UDP listens for the output of a receiver BeSwarm Vehicle GS does not configure.",
             "type": "uint8",
             "enumStrings": "Serial,TCP,UDP",
             "enumValues": "0,1,2",
@@ -71,7 +71,7 @@
         {
             "name": "autoConnect",
             "shortDesc": "Connects the saved receiver at startup and reconnects it when the connection is lost or the receiver is plugged back in. Disconnect pauses this until you connect again.",
-            "longDesc": "Connect the saved receiver when QGroundControl starts, reconnect it with increasing delays when the connection is lost, and reconnect a serial receiver as soon as it is plugged back in. A configured base without a saved serial device connects to an RTK receiver detected on USB instead. Disconnect pauses automatic connection until you connect again. When off, receivers connect only when you select Connect, and a lost connection is reported. Automatic connections never save settings to receiver flash.",
+            "longDesc": "Connect the saved receiver when BeSwarm Vehicle GS starts, reconnect it with increasing delays when the connection is lost, and reconnect a serial receiver as soon as it is plugged back in. A configured base without a saved serial device connects to an RTK receiver detected on USB instead. Disconnect pauses automatic connection until you connect again. When off, receivers connect only when you select Connect, and a lost connection is reported. Automatic connections never save settings to receiver flash.",
             "type": "bool",
             "default": true,
             "label": "Connect automatically",

@@ -14,7 +14,7 @@ AnalyzePage {
     id: root
 
     pageComponent:      recordingsComponent
-    pageDescription:    qsTr("Play the videos QGroundControl recorded, with the telemetry recorded alongside them.")
+    pageDescription:    qsTr("Play the videos %1 recorded, with the telemetry recorded alongside them.").arg(QGroundControl.appName)
 
     readonly property real _margin: ScreenTools.defaultFontPixelWidth
 
