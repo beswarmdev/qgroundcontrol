@@ -436,7 +436,7 @@ int Platform::showRootError([[maybe_unused]] int argc, [[maybe_unused]] char *ar
     const QString message = QCoreApplication::translate("main",
         "You are running %1 as root. "
         "You should not do this since it will cause other issues with %1. "
-        "%1 will now exit.").arg(QLatin1String(QGC_APP_NAME));
+        "%1 will now exit.").arg(QLatin1String(QGC_APP_DISPLAY_NAME));
     showLinuxErrorDialog(message.toLocal8Bit());
     return -1;
 }
@@ -447,7 +447,7 @@ int Platform::showMultipleInstanceError([[maybe_unused]] int argc, [[maybe_unuse
 {
     const QString message = QCoreApplication::translate("main",
         "A second instance of %1 is already running. "
-        "Please close the other instance and try again.").arg(QLatin1String(QGC_APP_NAME));
+        "Please close the other instance and try again.").arg(QLatin1String(QGC_APP_DISPLAY_NAME));
 #if defined(Q_OS_MACOS)
     // The native alert is GUI-only; also write to stderr so a CLI/headless launch sees the reason.
     fprintf(stderr, "Error: %s\n", message.toLocal8Bit().constData());

@@ -21,6 +21,10 @@ set(QGC_APP_NAME
     "QGroundControl"
     CACHE STRING "Application name"
 )
+set(QGC_APP_DISPLAY_NAME
+    "BeSwarm Vehicle GS"
+    CACHE STRING "User-visible application name (window title and UI text)"
+)
 string(TIMESTAMP _copyright_year "%Y")
 set(QGC_APP_COPYRIGHT
     "Copyright (c) ${_copyright_year} QGroundControl. All rights reserved."

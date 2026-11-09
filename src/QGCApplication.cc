@@ -97,6 +97,7 @@ QGCApplication::QGCApplication(int& argc, char* argv[], const QGCCommandLinePars
 #endif
     }
     setApplicationName(applicationName);
+    setApplicationDisplayName(QStringLiteral(QGC_APP_DISPLAY_NAME));
     setDesktopFileName(QGC_PACKAGE_NAME);
     setOrganizationName(QGC_ORG_NAME);
     setOrganizationDomain(QGC_ORG_DOMAIN);
@@ -353,7 +354,7 @@ void QGCApplication::_initForNormalAppBoot()
     if (_settingsUpgraded) {
         showAppMessage(tr("The format for %1 saved settings has been modified. "
                           "Your saved settings have been reset to defaults.")
-                           .arg(applicationName()));
+                           .arg(applicationDisplayName()));
     }
 
     // Connect links with flag AutoconnectLink
@@ -429,7 +430,7 @@ void QGCApplication::showCriticalVehicleMessage(const QString& message)
 
 void QGCApplication::showAppMessage(const QString& message, const QString& title)
 {
-    const QString dialogTitle = title.isEmpty() ? applicationName() : title;
+    const QString dialogTitle = title.isEmpty() ? applicationDisplayName() : title;
 
     if (runningUnitTests()) {
         // Logged under QGCAppMessageLog so tests can assert expected dialogs via
