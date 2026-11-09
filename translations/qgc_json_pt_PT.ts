@@ -5152,8 +5152,8 @@
     <message>
       <extracomment>.QGC.MetaData.Facts[enableStorageLimit].longDesc</extracomment>
       <location filename="/home/runner/work/qgroundcontrol/qgroundcontrol/src/Settings/Video.SettingsGroup.json"/>
-      <source>When enabled, old video files will be auto-deleted when the total size of QGC-recorded video exceeds the maximum video storage usage.</source>
-      <translation type="unfinished">When enabled, old video files will be auto-deleted when the total size of QGC-recorded video exceeds the maximum video storage usage.</translation>
+      <source>When enabled, old video files will be auto-deleted when the total size of video recorded by BeSwarm Vehicle GS exceeds the maximum video storage usage.</source>
+      <translation type="unfinished">When enabled, old video files will be auto-deleted when the total size of video recorded by BeSwarm Vehicle GS exceeds the maximum video storage usage.</translation>
     </message>
     <message>
       <extracomment>.QGC.MetaData.Facts[enableStorageLimit].label</extracomment>
@@ -6254,8 +6254,8 @@
     <message>
       <extracomment>.QGC.MetaData.Facts[sendGCSHeartbeat].shortDesc</extracomment>
       <location filename="/home/runner/work/qgroundcontrol/qgroundcontrol/src/Settings/Mavlink.SettingsGroup.json"/>
-      <source>Periodically transmit heartbeat messages to inform vehicles that QGC is connected.</source>
-      <translation type="unfinished">Periodically transmit heartbeat messages to inform vehicles that QGC is connected.</translation>
+      <source>Periodically transmit heartbeat messages to inform vehicles that BeSwarm Vehicle GS is connected.</source>
+      <translation type="unfinished">Periodically transmit heartbeat messages to inform vehicles that BeSwarm Vehicle GS is connected.</translation>
     </message>
     <message>
       <extracomment>.QGC.MetaData.Facts[sendGCSHeartbeat].label</extracomment>

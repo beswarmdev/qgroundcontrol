@@ -6058,8 +6058,8 @@ Click Ok to start the auto-tuning process.
     </message>
     <message>
       <location filename="../src/AutoPilotPlugins/Common/ESP8266Component.qml" line="244"/>
-      <source>QGC UDP Port</source>
-      <translation>Porta UDP QGC</translation>
+      <source>%1 UDP Port</source>
+      <translation>Porta UDP %1</translation>
     </message>
     <message>
       <location filename="../src/AutoPilotPlugins/Common/ESP8266Component.qml" line="263"/>
@@ -6073,13 +6073,13 @@ Click Ok to start the auto-tuning process.
     </message>
     <message>
       <location filename="../src/AutoPilotPlugins/Common/ESP8266Component.qml" line="280"/>
-      <source>Bridge/QGC Link</source>
-      <translation>Link Bridge/QGC</translation>
+      <source>Bridge/%1 Link</source>
+      <translation>Link Bridge/%1</translation>
     </message>
     <message>
       <location filename="../src/AutoPilotPlugins/Common/ESP8266Component.qml" line="284"/>
-      <source>QGC/Bridge Link</source>
-      <translation>Link QGC/Ponte</translation>
+      <source>%1/Bridge Link</source>
+      <translation>Link %1/Ponte</translation>
     </message>
     <message>
       <location filename="../src/AutoPilotPlugins/Common/ESP8266Component.qml" line="290"/>
@@ -6119,8 +6119,8 @@ Click Ok to start the auto-tuning process.
     </message>
     <message>
       <location filename="../src/AutoPilotPlugins/Common/ESP8266Component.qml" line="437"/>
-      <source>This will restart the WiFi Bridge so the settings you&apos;ve changed can take effect. Note that you may have to change your computer WiFi settings and QGroundControl link settings to match these changes. Are you sure you want to restart it?</source>
-      <translation>Isso irá reiniciar a ponte WiFi de modo que as configurações que você mudou possam tomar efeito. Note que você pode ter que mudar as configurações WiFi do seu computador e as configurações de conexão do QGroundControl para corresponder a essas alterações. Tem certeza que deseja reiniciar?</translation>
+      <source>This will restart the WiFi Bridge so the settings you&apos;ve changed can take effect. Note that you may have to change your computer WiFi settings and %1 link settings to match these changes. Are you sure you want to restart it?</source>
+      <translation>Isso irá reiniciar a ponte WiFi de modo que as configurações que você mudou possam tomar efeito. Note que você pode ter que mudar as configurações WiFi do seu computador e as configurações de conexão do %1 para corresponder a essas alterações. Tem certeza que deseja reiniciar?</translation>
     </message>
     <message>
       <location filename="../src/AutoPilotPlugins/Common/ESP8266Component.qml" line="452"/>
@@ -9177,8 +9177,13 @@ VTOL</translation>
     <name>HelpSettings</name>
     <message>
       <location filename="../src/AppSettings/HelpSettings.qml" line="27"/>
-      <source>QGroundControl User Guide</source>
-      <translation>Guia do Usuário QGroundControl</translation>
+      <source>%1 User Guide</source>
+      <translation>Guia do Usuário %1</translation>
+    </message>
+    <message>
+      <location filename="../src/AppSettings/HelpSettings.qml" line="30"/>
+      <source>Open link</source>
+      <translation>Abrir link</translation>
     </message>
     <message>
       <location filename="../src/AppSettings/HelpSettings.qml" line="34"/>
@@ -9192,8 +9197,8 @@ VTOL</translation>
     </message>
     <message>
       <location filename="../src/AppSettings/HelpSettings.qml" line="48"/>
-      <source>QGroundControl Discord Channel</source>
-      <translation type="unfinished">QGroundControl Discord Channel</translation>
+      <source>%1 Discord Channel</source>
+      <translation type="unfinished">%1 Discord Channel</translation>
     </message>
   </context>
   <context>
@@ -14358,8 +14363,8 @@ Is this really what you want?</translation>
     </message>
     <message>
       <location filename="../src/FirmwarePlugin/PX4/PX4FirmwarePlugin.cc" line="677"/>
-      <source>QGroundControl supports PX4 Pro firmware Version %1.%2.%3 and above. You are using a version prior to that which will lead to unpredictable results. Please upgrade your firmware.</source>
-      <translation>QGroundControl suporta o firmware PX4 Pro versão %1.%2.%3 e acima. Se você estiver usando uma versão anterior a essa irá levar a resultados imprevisíveis. Por favor atualize seu firmware.</translation>
+      <source>%1 supports PX4 Pro firmware Version %2.%3.%4 and above. You are using a version prior to that which will lead to unpredictable results. Please upgrade your firmware.</source>
+      <translation>%1 suporta o firmware PX4 Pro versão %2.%3.%4 e acima. Se você estiver usando uma versão anterior a essa irá levar a resultados imprevisíveis. Por favor atualize seu firmware.</translation>
     </message>
   </context>
   <context>
@@ -15795,8 +15800,8 @@ Note que isso também irá redefinir tudo, incluindo nós da UAVCAN, todas as co
     </message>
     <message>
       <location filename="../src/QmlControls/ParameterEditorController.cc" line="500"/>
-      <source>No valid parameters found in file. Check that the file is in QGC or Mission Planner format.</source>
-      <translation type="unfinished">No valid parameters found in file. Check that the file is in QGC or Mission Planner format.</translation>
+      <source>No valid parameters found in file. Check that the file is in %1 or Mission Planner format.</source>
+      <translation type="unfinished">No valid parameters found in file. Check that the file is in %1 or Mission Planner format.</translation>
     </message>
   </context>
   <context>
@@ -16869,13 +16874,13 @@ Click &apos;Ok&apos; to upload the Plan anyway.</source>
     </message>
     <message>
       <location filename="../src/FlyView/PreFlightSoundCheck.qml" line="8"/>
-      <source>QGC audio output enabled. System audio output enabled, too?</source>
-      <translation>Saída de áudio QGC ativada. Saída de áudio do sistema ativada, também?</translation>
+      <source>%1 audio output enabled. System audio output enabled, too?</source>
+      <translation>Saída de áudio %1 ativada. Saída de áudio do sistema ativada, também?</translation>
     </message>
     <message>
       <location filename="../src/FlyView/PreFlightSoundCheck.qml" line="9"/>
-      <source>QGC audio output is disabled. Please enable it under application settings-&gt;general to hear audio warnings!</source>
-      <translation>A saída de aúdio do QGC está desativada. Por favor habilite nas configurações do aplicativo-&gt;general&gt;hear audio warnings!</translation>
+      <source>%1 audio output is disabled. Please enable it under application settings-&gt;general to hear audio warnings!</source>
+      <translation>A saída de aúdio do %1 está desativada. Por favor habilite nas configurações do aplicativo-&gt;general&gt;hear audio warnings!</translation>
     </message>
   </context>
   <context>
