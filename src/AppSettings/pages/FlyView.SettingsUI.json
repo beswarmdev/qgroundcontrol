@@ -70,6 +70,15 @@
             ]
         },
         {
+            "heading": "Fleet Panel",
+            "keywords": ["fleet", "swarm", "rtl", "land", "retry", "attempts"],
+            "controls": [
+                {
+                    "setting": "flyViewSettings.fleetCommandAttempts"
+                }
+            ]
+        },
+        {
             "component": "MavlinkActionSettings",
             "sectionName": "MAVLink Actions",
             "keywords": [

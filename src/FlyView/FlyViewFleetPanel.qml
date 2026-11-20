@@ -16,6 +16,7 @@ Item {
     readonly property bool expanded: _expanded
     readonly property alias controller: fleetController
 
+    readonly property var _guidedController: globals.guidedControllerFlyView
     readonly property string _expandedSettingsKey: "FlyViewFleetPanelExpanded"
     readonly property real _margin: ScreenTools.defaultFontPixelWidth / 2
     readonly property real _dotSize: ScreenTools.defaultFontPixelHeight * 0.6
@@ -283,6 +284,7 @@ Item {
                 text: qsTr("RTL ALL")
                 backgroundColor: qgcPal.colorYellow
                 textColor: qgcPal.mapWidgetBorderDark
+                onClicked: fleetController.rtlAll()
             }
 
             QGCButton {
@@ -291,6 +293,7 @@ Item {
                 text: qsTr("LAND ALL")
                 backgroundColor: qgcPal.colorRed
                 textColor: qgcPal.mapWidgetBorderLight
+                onClicked: root._guidedController.confirmAction(root._guidedController.actionFleetLand, fleetController)
             }
         }
 
