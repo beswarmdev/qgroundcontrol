@@ -173,10 +173,13 @@ $env:Path = "$env:QT_ROOT_DIR\bin;$gst\bin;$env:Path"
 ### Bloco LINT-ENV (Windows, toda chamada de lint)
 
 ```powershell
-$env:Path = "C:\Program Files\Git\bin;$env:APPDATA\Python\Python312\Scripts;$env:Path"  # bash = Git Bash; uv 0.13.7
+$env:Path = "C:\Program Files\Git\bin;$env:APPDATA\Python\Python312\Scripts;C:\Qt\6.12.0\msvc2022_64\bin;$env:Path"  # bash = Git Bash; uv 0.13.7; qmllint
 $env:UV_PROJECT_ENVIRONMENT = 'C:\gits\qgroundcontrol\tools\.venv'  # worktrees reaproveitam o venv do checkout principal
-$env:QT_ROOT_DIR = 'C:\Qt\6.12.0\msvc2022_64'                       # o hook qmllint procura o qmllint do Qt
+$env:QT_ROOT_DIR = 'C:\Qt\6.12.0\msvc2022_64'
 ```
+
+O hook `qmllint` procura o `qmllint` só no `PATH` (por isso o `bin` do Qt acima); sem ele o hook falha por ambiente, com
+0 arquivos analisados.
 
 Conferir uma vez por processo: `(Get-Command bash).Source` = `C:\Program Files\Git\bin\bash.exe` e `uv --version` ≥
 0.12.8. Comando de lint, na raiz do checkout/worktree:
@@ -356,6 +359,7 @@ Os dois `.ps1` terminam com código ≠ 0 em qualquer falha e imprimem caminho, 
 termina com código ≠ 0 em qualquer falha.
 
 Nos `.ps1`, todo comando nativo (git, cmake, wsl) passa por uma função `Invoke-Native([scriptblock]$Command)`, que:
+
 - usa `$ErrorActionPreference = 'Continue'` só dentro dela;
 - executa `& $Command`;
 - dá `throw` se `$LASTEXITCODE` ≠ 0.
@@ -473,7 +477,7 @@ executado com `wsl.exe -d Ubuntu-26.04 -- bash /mnt/c/.../script.sh`, porque o P
      `& wsl.exe -d $Distro -- bash -l <wsl de "$PSScriptRoot\build-appimage.sh"> --origin <wsl de $repoDir> --sha $sha --jobs $Jobs --out <wsl de $out>`
      (+ `--skip-build` se pedido). O `-l` carrega o `~/.profile` (PATH do uv). Se `$LASTEXITCODE` ≠ 0, `throw`.
   6. `Test-Path $out`, senão `throw`. Gravar o `.sha256` igual ao do Windows:
-     `[IO.File]::WriteAllText("$out.sha256", "$hash  $Name-linux-x86_64.AppImage`n")`, com `$hash` minúsculo de
+     ``[IO.File]::WriteAllText("$out.sha256", "$hash  $Name-linux-x86_64.AppImage`n")``, com `$hash` minúsculo de
      `Get-FileHash -Algorithm SHA256`.
   7. Resumo: SHA do commit, caminho, tamanho em MB, hash.
 - [ ] **Step 2: `build-appimage.sh`** — `set -euo pipefail`; parse dos argumentos do Contrato (`--origin`, `--sha` e
@@ -651,7 +655,7 @@ execução — nunca `QTest::ignoreMessage`.
     `readonly property real _margin: ScreenTools.defaultFontPixelWidth / 2` (margem do `ColumnLayout` em todos os lados),
     `visible: !QGroundControl.videoManager.fullScreen && QGroundControl.multiVehicleManager.vehicles.count > 0`.
   - Fundo igual ao `TelemetryValuesBar.qml`: `Rectangle { anchors.fill: parent; color: qgcPal.window; radius: ScreenTools.defaultFontPixelWidth / 2; opacity: 0.75 }`
-    + `DeadMouseArea` para cliques não irem ao mapa (como `FlyViewTopRightPanel.qml`).
+    e `DeadMouseArea` para cliques não irem ao mapa (como `FlyViewTopRightPanel.qml`).
   - `ColumnLayout`:
     1. Cabeçalho (`fleetPanelHeader`, clicável inteiro via `QGCMouseArea` → `_setExpanded(!expanded)`): título
        `"Fleet (%1)"`, contador `"%1 lost"` quando houver veículo com `communicationLost`, e `QGCColoredImage`
@@ -744,7 +748,7 @@ execução — nunca `QTest::ignoreMessage`.
      `Start-Process "$staging\bin\QGroundControl.exe" -ArgumentList '--simple-boot-test','--allow-multiple' -Wait -PassThru`
      → `ExitCode` 0, senão `throw`.
   5. `$zip = Join-Path $DistDir "$Name-win64-portable.zip"`; `Compress-Archive -Path $staging -DestinationPath $zip -Force`.
-  6. `.sha256` com `[IO.File]::WriteAllText("$zip.sha256", "$hash  $Name-win64-portable.zip`n")` (hash de
+  6. `.sha256` com ``[IO.File]::WriteAllText("$zip.sha256", "$hash  $Name-win64-portable.zip`n")`` (hash de
      `Get-FileHash -Algorithm SHA256`, em minúsculas; `WriteAllText` grava UTF-8 sem BOM).
   7. Resumo: caminho, tamanho em MB, hash.
 - [ ] **Step 2: Validar sem tocar no build do agente C** — usar o build Release já pronto do worktree `win-rebuild`:

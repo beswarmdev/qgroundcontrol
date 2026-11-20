@@ -40,4 +40,6 @@ extend-exclude = [
     "docs/fr/",
     "docs/he/",
     "docs/uk/",
+    # Portuguese plans and guides
+    "docs/superpowers/",
 ]
