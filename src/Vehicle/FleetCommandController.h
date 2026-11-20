@@ -1,9 +1,14 @@
 #pragma once
 
 #include <QtCore/QLoggingCategory>
+#include <QtCore/QMap>
 #include <QtCore/QObject>
+#include <QtCore/QPointer>
 #include <QtCore/QVariantMap>
 #include <QtQmlIntegration/QtQmlIntegration>
+
+class QTimer;
+class Vehicle;
 
 Q_DECLARE_LOGGING_CATEGORY(FleetCommandControllerLog)
 
@@ -60,7 +65,30 @@ signals:
     void finished(FleetCommandController::Command command);
 
 private:
+    struct VehicleEntry
+    {
+        QPointer<Vehicle> vehicle;
+        QString targetMode;
+        VehicleState state = VehicleState::Pending;
+        int attempt = 0;
+        QMetaObject::Connection modeConnection;
+    };
+
+    void _start(Command command);
+    void _sendAttempt(quint32 id);
+    void _attemptWindowElapsed();
+    void _flightModeChanged(quint32 id, const QString& mode);
+    void _vehicleRemoved(Vehicle* vehicle);
+    void _resolve(quint32 id, VehicleState state);
+    void _settle();
+    void _publish();
+    void _updateBusy();
+    void _releaseEntries();
+
     bool _busy = false;
     Command _activeCommand = Command::None;
     QVariantMap _vehicleStatus;
+    QMap<quint32, VehicleEntry> _entries;
+    QTimer* _attemptTimer = nullptr;
+    int _maxAttempts = 0;
 };
