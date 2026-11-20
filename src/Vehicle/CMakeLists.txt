@@ -3,10 +3,13 @@
 # Core vehicle state management and MAVLink communication
 # ============================================================================
 
-target_sources(${CMAKE_PROJECT_NAME}
+target_sources(
+    ${CMAKE_PROJECT_NAME}
     PRIVATE
         Autotune.cpp
         Autotune.h
+        FleetCommandController.cc
+        FleetCommandController.h
         FTPController.cc
         FTPController.h
         FTPManager.cc

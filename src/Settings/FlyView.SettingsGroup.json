@@ -161,6 +161,16 @@
             "default": false,
             "label": "Allow Force Arm",
             "keywords": "force arm,arming,pre-arm"
+        },
+        {
+            "name": "fleetCommandAttempts",
+            "shortDesc": "Number of times the Fleet panel sends RTL or Land to each vehicle before reporting it as failed.",
+            "type": "uint32",
+            "min": 1,
+            "max": 20,
+            "default": 3,
+            "label": "Fleet RTL/Land attempts",
+            "keywords": "fleet,swarm,rtl,land,retry,attempts"
         }
     ]
 }
