@@ -52,6 +52,7 @@ Item {
             const row = bottomRightRowLayout
             return row.visible ? Qt.rect(row.x, row.y, row.width, row.height) : Qt.rect(_root.width, _root.height, 0, 0)
         }
+        fleetPanel: fleetPanel.visible ? Qt.rect(fleetPanel.x, fleetPanel.y, fleetPanel.width, fleetPanel.height) : Qt.rect(_root.width, _root.height, 0, 0)
         // The loader spans the full width but only the stick pads at each end cover the map
         virtualJoystickLeft: {
             const vj = virtualJoystickMultiTouch
@@ -65,9 +66,10 @@ Item {
 
     FlyViewTopRightPanel {
         id:                     topRightPanel
+        objectName:             "flyViewTopRightPanel"
         anchors.top:            parent.top
         anchors.right:          parent.right
-        maximumHeight:          parent.height - (bottomRightRowLayout.height + _margins * 4)
+        maximumHeight:          parent.height - (bottomRightRowLayout.height + (fleetPanel.visible ? fleetPanel.height + _margins * 2 : 0) + _margins * 4)
     }
 
     FlyViewTopRightColumnLayout {
@@ -84,6 +86,14 @@ Item {
         anchors.bottom:     parent.bottom
         anchors.right:      parent.right
         spacing:            _layoutSpacing
+    }
+
+    FlyViewFleetPanel {
+        id:                     fleetPanel
+        anchors.right:          parent.right
+        anchors.bottom:         bottomRightRowLayout.top
+        anchors.bottomMargin:   _margins * 2
+        maximumHeight:          parent.height * 0.45
     }
 
     FlyViewMissionCompleteDialog {
