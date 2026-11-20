@@ -29,6 +29,7 @@ Reuse the existing build tree in WSL and only repackage the AppImage.
 param(
     [string]$Ref = 'HEAD',
     [string]$DistDir = 'C:\gits\qgc-dist',
+    [ValidatePattern('^(?!\.+$)[A-Za-z0-9_.-]+$')]
     [string]$Name = 'BeSwarmVehicleGS',
     [int]$Jobs = [Math]::Max(1, [Environment]::ProcessorCount - 2),
     [string]$Distro = 'Ubuntu-26.04',
@@ -75,28 +76,29 @@ New-Item -ItemType Directory -Force -Path $DistDir | Out-Null
 $DistDir = (Resolve-Path -LiteralPath $DistDir).ProviderPath
 $artifactName = "$Name-linux-x86_64.AppImage"
 $out = Join-Path $DistDir $artifactName
-foreach ($stale in $out, "$out.sha256") {
-    if (Test-Path -LiteralPath $stale) {
-        Remove-Item -LiteralPath $stale -Force
-    }
+# Build into a side file so a failed build leaves the previous AppImage in place
+$partial = "$out.partial"
+if (Test-Path -LiteralPath $partial) {
+    Remove-Item -LiteralPath $partial -Force
 }
 
 $wslArgs = @(
-    '-d', $Distro, '--',
+    '-d', $Distro, '--cd', '~', '--',
     'bash', '-l', (ConvertTo-WslPath (Join-Path $PSScriptRoot 'build-appimage.sh')),
     '--origin', (ConvertTo-WslPath $repoDir),
     '--sha', $sha,
     '--jobs', $Jobs,
-    '--out', (ConvertTo-WslPath $out)
+    '--out', (ConvertTo-WslPath $partial)
 )
 if ($SkipBuild) {
     $wslArgs += '--skip-build'
 }
 Invoke-Native { & wsl.exe @wslArgs }
 
-if (-not (Test-Path -LiteralPath $out)) {
-    throw "AppImage was not produced: $out"
+if (-not (Test-Path -LiteralPath $partial)) {
+    throw "AppImage was not produced: $partial"
 }
+Move-Item -LiteralPath $partial -Destination $out -Force
 $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $out).Hash.ToLowerInvariant()
 [IO.File]::WriteAllText("$out.sha256", "$hash  $artifactName`n")
 

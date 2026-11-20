@@ -30,7 +30,7 @@ param(
     [string]$RepoDir,
     [string]$BuildDir,
     [string]$DistDir = 'C:\gits\qgc-dist',
-    [ValidatePattern('^[A-Za-z0-9_.-]+$')]
+    [ValidatePattern('^(?!\.+$)[A-Za-z0-9_.-]+$')]
     [string]$Name = 'BeSwarmVehicleGS',
     [string]$QtRoot = 'C:\Qt\6.12.0\msvc2022_64',
     [switch]$SkipBuild
