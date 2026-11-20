@@ -74,6 +74,7 @@ Item {
 
     FlyViewTopRightColumnLayout {
         id:                 topRightColumnLayout
+        objectName:         "flyViewTopRightColumn"
         anchors.top:        parent.top
         anchors.right:      parent.right
         spacing:            _layoutSpacing

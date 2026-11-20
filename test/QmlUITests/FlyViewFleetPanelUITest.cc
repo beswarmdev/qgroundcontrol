@@ -23,6 +23,8 @@ namespace {
 
 constexpr int kFleetPanelWindowWidth = 1280;
 constexpr int kFleetPanelWindowHeight = 720;
+constexpr int kFleetPanelCompactWindowHeight = 560;
+constexpr int kFleetPanelCameraControlsMinHeight = 100;
 
 // Where QGroundControl.saveBoolGlobalSetting() keeps the panel's expanded state (QGroundControlQmlGlobal, private)
 constexpr const char* kFleetPanelSettingsGroup = "QGCQml";
@@ -54,6 +56,15 @@ bool fleetPanelPersistedExpanded()
     QSettings settings;
     settings.beginGroup(QLatin1String(kFleetPanelSettingsGroup));
     return settings.value(QLatin1String(kFleetPanelExpandedKey), true).toBool();
+}
+
+/// Position and size of \a item in window coordinates, after its layout has been polished.
+QRectF fleetPanelSceneRect(QQuickItem* item)
+{
+    for (QQuickItem* ancestor = item; ancestor; ancestor = ancestor->parentItem()) {
+        ancestor->ensurePolished();
+    }
+    return QRectF(item->mapToScene(QPointF(0, 0)), QSizeF(item->width(), item->height()));
 }
 
 }  // namespace
@@ -240,4 +251,87 @@ void FlyViewFleetPanelUITest::_testFleetPanelLayoutWithMultiVehiclePanel()
             };
             QTRY_VERIFY2_WITH_TIMEOUT(panelsAreClear(), qPrintable(panelsDescription()), TestTimeout::mediumMs());
         });
+}
+
+void FlyViewFleetPanelUITest::_testFleetPanelStaysBelowCameraControls()
+{
+    // With one vehicle the top right column holds the camera controls instead of the multi-vehicle panel
+    runWithMockLink(
+        [] { return MockLink::startPX4MockLink(MockConfiguration::OptionEnableCamera); },
+        [this](QPointer<MockLink>, Vehicle* vehicle) {
+            _window->setMinimumWidth(0);
+            _window->setMinimumHeight(0);
+            _window->resize(kFleetPanelWindowWidth, kFleetPanelCompactWindowHeight);
+            QTRY_COMPARE_WITH_TIMEOUT(_rootItem->height(), qreal(kFleetPanelCompactWindowHeight),
+                                      TestTimeout::shortMs());
+
+            QQuickItem* const column =
+                findVisibleItem(_rootItem, QStringLiteral("flyViewTopRightColumn"), TestTimeout::longMs());
+            QVERIFY2(column, "Top right column not visible with one vehicle");
+            QQuickItem* const fleetPanel =
+                findVisibleItem(_rootItem, QStringLiteral("flyViewFleetPanel"), TestTimeout::longMs());
+            QVERIFY2(fleetPanel, "Fleet panel not visible");
+
+            QVERIFY(vehicle->cameraManager());
+            QTRY_VERIFY_WITH_TIMEOUT(fleetPanelSceneRect(column).height() > kFleetPanelCameraControlsMinHeight,
+                                     TestTimeout::longMs());
+
+            const auto description = [&] {
+                const auto text = [](const QRectF& rect) {
+                    return QStringLiteral("(%1, %2, %3 x %4)")
+                        .arg(rect.x())
+                        .arg(rect.y())
+                        .arg(rect.width())
+                        .arg(rect.height());
+                };
+                return QStringLiteral("top right column %1, fleet panel %2")
+                    .arg(text(fleetPanelSceneRect(column)), text(fleetPanelSceneRect(fleetPanel)));
+            };
+            QTRY_VERIFY2_WITH_TIMEOUT(!fleetPanelSceneRect(column).intersects(fleetPanelSceneRect(fleetPanel)),
+                                      qPrintable(description()), TestTimeout::mediumMs());
+        });
+}
+
+void FlyViewFleetPanelUITest::_testActionButtonsStayPutWhileRetrying()
+{
+    // The link is cut below, and the queue gives up on the unanswered gimbal probe
+    ignoreLogMessage("Vehicle.MavCommandQueue", QtWarningMsg,
+                     QRegularExpression(QStringLiteral("Giving up sending command after max retries: "
+                                                       "MAV_CMD_REQUEST_MESSAGE message: GIMBAL_MANAGER_INFORMATION")));
+
+    runWithMockLink([] { return MockLink::startPX4MockLink(); },
+                    [this](QPointer<MockLink> mockLink, Vehicle* vehicle) {
+                        vehicle->setArmed(true, false /* showError */);
+                        QTRY_VERIFY_WITH_TIMEOUT(vehicle->armed(), TestTimeout::mediumMs());
+
+                        QQuickItem* const rtlButton =
+                            findVisibleItem(_rootItem, QStringLiteral("fleetRtlAllButton"), TestTimeout::longMs());
+                        QVERIFY2(rtlButton, "RTL ALL button not visible");
+                        QQuickItem* const landButton =
+                            findVisibleItem(_rootItem, QStringLiteral("fleetLandAllButton"), TestTimeout::longMs());
+                        QVERIFY2(landButton, "LAND ALL button not visible");
+                        const qreal rtlTop = fleetPanelSceneRect(rtlButton).top();
+                        const qreal landTop = fleetPanelSceneRect(landButton).top();
+
+                        // Without a link the command keeps retrying, which brings up the Stop button and the summary
+                        mockLink->setCommLost(true);
+                        QVERIFY(clickButton(QStringLiteral("fleetRtlAllButton")));
+                        QVERIFY2(findVisibleItem(_rootItem, QStringLiteral("fleetStopButton"), TestTimeout::mediumMs()),
+                                 "Stop retries not shown while retrying");
+                        QVERIFY2(findVisibleItem(_rootItem, QStringLiteral("fleetSummary"), TestTimeout::mediumMs()),
+                                 "Summary not shown while retrying");
+
+                        // A second tap on the same spot must hit RTL ALL again, not Stop retries
+                        QTRY_VERIFY2_WITH_TIMEOUT(
+                            qFuzzyCompare(fleetPanelSceneRect(rtlButton).top(), rtlTop) &&
+                                qFuzzyCompare(fleetPanelSceneRect(landButton).top(), landTop),
+                            qPrintable(QStringLiteral("RTL ALL moved from %1 to %2, LAND ALL from %3 to %4")
+                                           .arg(rtlTop)
+                                           .arg(fleetPanelSceneRect(rtlButton).top())
+                                           .arg(landTop)
+                                           .arg(fleetPanelSceneRect(landButton).top())),
+                            TestTimeout::shortMs());
+
+                        QVERIFY(clickButton(QStringLiteral("fleetStopButton")));
+                    });
 }

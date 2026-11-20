@@ -15,6 +15,8 @@ private slots:
     void _testRtlAllSendsWithoutConfirmation();
     void _testLandAllRequiresConfirmation();
     void _testFleetPanelLayoutWithMultiVehiclePanel();
+    void _testFleetPanelStaysBelowCameraControls();
+    void _testActionButtonsStayPutWhileRetrying();
 
 private:
     /// Text of the visible item with \a objectName, or an empty string while the item is hidden or missing.

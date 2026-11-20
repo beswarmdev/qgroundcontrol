@@ -273,6 +273,23 @@ Item {
             }
         }
 
+        // Above the action row: the panel grows upwards, so the RTL and LAND buttons stay where the finger last was
+        QGCLabel {
+            objectName: "fleetSummary"
+            Layout.fillWidth: true
+            visible: fleetController.activeCommand !== FleetCommandController.Command.None
+            elide: Text.ElideRight
+            text: root._summaryText()
+        }
+
+        QGCButton {
+            objectName: "fleetStopButton"
+            Layout.fillWidth: true
+            visible: fleetController.busy
+            text: qsTr("Stop retries")
+            onClicked: fleetController.cancel()
+        }
+
         RowLayout {
             Layout.fillWidth: true
             spacing: root._margin
@@ -297,21 +314,6 @@ Item {
             }
         }
 
-        QGCButton {
-            objectName: "fleetStopButton"
-            Layout.fillWidth: true
-            visible: fleetController.busy
-            text: qsTr("Stop retries")
-            onClicked: fleetController.cancel()
-        }
-
-        QGCLabel {
-            objectName: "fleetSummary"
-            Layout.fillWidth: true
-            visible: fleetController.activeCommand !== FleetCommandController.Command.None
-            elide: Text.ElideRight
-            text: root._summaryText()
-        }
     }
 
     Component.onCompleted: _expanded = QGroundControl.loadBoolGlobalSetting(_expandedSettingsKey, true)
