@@ -46,7 +46,7 @@ void FleetCommandController::takeoffAll()
 
 void FleetCommandController::rebootAll()
 {
-    qCDebug(FleetCommandControllerLog) << "not implemented";
+    _start(Command::Reboot);
 }
 
 void FleetCommandController::cancel()
@@ -124,6 +124,12 @@ FleetCommandController::VehicleEntry FleetCommandController::_classify(Command c
     VehicleEntry entry;
     entry.vehicle = vehicle;
 
+    if (command == Command::Reboot) {
+        // Every vehicle gets it, armed or not
+        entry.attempt = 1;
+        return entry;
+    }
+
     if (command == Command::Takeoff) {
         if (!vehicle->supports()->guidedTakeoffWithAltitude()) {
             entry.state = VehicleState::Unsupported;
@@ -155,7 +161,11 @@ void FleetCommandController::_begin(quint32 id)
     }
 
     Vehicle* const vehicle = it->vehicle;
-    if (_activeCommand == Command::Takeoff) {
+    if (_activeCommand == Command::Reboot) {
+        // A vehicle which accepts the reboot closes its links, which removes it from the vehicle list
+        vehicle->rebootVehicle();
+        _startStepTimer(id, kRebootTimeoutMs);
+    } else if (_activeCommand == Command::Takeoff) {
         it->takeoffConnections.append(
             connect(vehicle, &Vehicle::flightModeChanged, this, [this, id]() { _takeoffProgress(id); }));
         it->takeoffConnections.append(
@@ -323,8 +333,13 @@ void FleetCommandController::_stepTimedOut(quint32 id)
         return;
     }
 
-    qCWarning(FleetCommandControllerLog) << "vehicle:" << id << "command:" << _activeCommand << "failed at step"
-                                         << it->step;
+    if (_activeCommand == Command::Reboot) {
+        qCWarning(FleetCommandControllerLog) << "vehicle:" << id << "command:" << _activeCommand
+                                             << "failed: still connected after" << kRebootTimeoutMs << "ms";
+    } else {
+        qCWarning(FleetCommandControllerLog) << "vehicle:" << id << "command:" << _activeCommand << "failed at step"
+                                             << it->step;
+    }
     _resolve(id, VehicleState::Failed);
     _settle();
 }
@@ -340,8 +355,13 @@ void FleetCommandController::_vehicleRemoved(Vehicle* vehicle)
         return;
     }
 
-    _disconnectEntry(*it);
-    _entries.erase(it);
+    if ((_activeCommand == Command::Reboot) && (it->state == VehicleState::Pending)) {
+        // The vehicle comes back with the same id after the restart, so its row stays to show the result
+        _resolve(it.key(), VehicleState::Succeeded);
+    } else {
+        _disconnectEntry(*it);
+        _entries.erase(it);
+    }
     _settle();
 }
 

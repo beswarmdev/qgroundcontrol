@@ -7,6 +7,7 @@
 #include "Fact.h"
 #include "FleetCommandController.h"
 #include "FlyViewSettings.h"
+#include "LinkManager.h"
 #include "MockLink.h"
 #include "MultiVehicleManager.h"
 #include "QmlObjectListModel.h"
@@ -69,6 +70,7 @@ Vehicle* FleetCommandControllerTest::_connectVehicle(MockLink* link, bool arm)
     }
 
     _links.append(link);
+    _sharedLinks.append(LinkManager::instance()->sharedLinkInterfacePointerForLink(link));
 
     const quint32 vehicleId = link->vehicleId();
     if (!waitForCondition([manager, vehicleId] { return manager->getVehicleById(vehicleId) != nullptr; },
@@ -157,6 +159,7 @@ void FleetCommandControllerTest::_disconnectLinks()
     MultiVehicleManager* const manager = MultiVehicleManager::instance();
     const bool vehiclesRemoved =
         QTest::qWaitFor([manager] { return manager->vehicles()->count() == 0; }, TestTimeout::longMs());
+    _sharedLinks.clear();
     UnitTest::settleEventLoopForCleanup();
     QVERIFY2(vehiclesRemoved, "Timeout waiting for the vehicles to disconnect");
 }
@@ -689,6 +692,62 @@ void FleetCommandControllerTest::_testLandCancelsTakeoff()
                  FleetCommandController::kTakeoffStepTimeoutMs + TestTimeout::shortMs()),
              "The takeoff went on after Land replaced it");
     QVERIFY(!vehicle->armed());
+}
+
+void FleetCommandControllerTest::_testRebootAllIncludingArmed()
+{
+    Vehicle* const armed = _connectVehicle(_startLink(MAV_AUTOPILOT_PX4), true);
+    QVERIFY(armed);
+    Vehicle* const idle = _connectVehicle(_startLink(MAV_AUTOPILOT_PX4), false);
+    QVERIFY(idle);
+    const QString armedKey = QString::number(armed->id());
+    const QString idleKey = QString::number(idle->id());
+
+    FleetCommandController controller;
+    QSignalSpy finishedSpy(&controller, &FleetCommandController::finished);
+    QVERIFY(finishedSpy.isValid());
+
+    controller.rebootAll();
+    QCOMPARE(controller.activeCommand(), FleetCommandController::Command::Reboot);
+
+    // The firmware accepts the reboot and the vehicle drops its links, so both vehicles go away
+    QTRY_COMPARE_WITH_TIMEOUT(MultiVehicleManager::instance()->vehicles()->count(), 0, TestTimeout::longMs());
+    const QVariantMap status = controller.vehicleStatus();
+    QCOMPARE(status.size(), 2);
+    for (const QString& key : {armedKey, idleKey}) {
+        QCOMPARE(status.value(key).toMap().value(QStringLiteral("state")).toInt(),
+                 int(FleetCommandController::VehicleState::Succeeded));
+    }
+    QVERIFY(!controller.busy());
+    QCOMPARE(finishedSpy.count(), 1);
+    QCOMPARE(finishedSpy[0][0].value<FleetCommandController::Command>(), FleetCommandController::Command::Reboot);
+}
+
+void FleetCommandControllerTest::_testRebootFailsWithoutAck()
+{
+    MockLink* const link = _startLink(MAV_AUTOPILOT_PX4);
+    Vehicle* const vehicle = _connectVehicle(link, false);
+    QVERIFY(vehicle);
+
+    FleetCommandController controller;
+    _setCommLost(link, true);
+    ignoreLogMessage("Vehicle.MavCommandQueue", QtWarningMsg,
+                     QRegularExpression(QStringLiteral("Giving up sending command after max retries: "
+                                                       "MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN")));
+    // The vehicle reports its own failure first, when the command queue gives up
+    expectAppMessage(QRegularExpression(QStringLiteral("Vehicle reboot failed")));
+    expectLogMessage("Vehicle.FleetCommandController", QtWarningMsg,
+                     QRegularExpression(QStringLiteral("vehicle: %1 command: .*Reboot failed: still connected after")
+                                            .arg(vehicle->id())));
+
+    controller.rebootAll();
+
+    QTRY_COMPARE_WITH_TIMEOUT(_state(controller, vehicle), int(FleetCommandController::VehicleState::Failed),
+                              FleetCommandController::kRebootTimeoutMs + TestTimeout::shortMs());
+    verifyExpectedLogMessage();
+    verifyExpectedLogMessage();
+    QVERIFY(!controller.busy());
+    QCOMPARE(MultiVehicleManager::instance()->vehicles()->count(), 1);
 }
 
 UT_REGISTER_TEST(FleetCommandControllerTest, TestLabel::Integration, TestLabel::Vehicle)

@@ -4,6 +4,7 @@
 #include <QtCore/QPointer>
 #include <QtCore/QVariant>
 
+#include "LinkInterface.h"
 #include "MAVLinkLib.h"
 #include "UnitTest.h"
 
@@ -38,6 +39,8 @@ private slots:
     void _testTakeoffSkipsAirborneAndUnsupported();
     void _testTakeoffStepTimeoutFails();
     void _testLandCancelsTakeoff();
+    void _testRebootAllIncludingArmed();
+    void _testRebootFailsWithoutAck();
 
 private:
     MockLink* _startLink(MAV_AUTOPILOT autopilot);
@@ -58,6 +61,8 @@ private:
     static QVariantMap _entry(const FleetCommandController& controller, const Vehicle* vehicle);
 
     QList<QPointer<MockLink>> _links;
+    /// A reboot makes the vehicle close its link from inside MockLink's own ack, so the link must outlive that call
+    QList<SharedLinkInterfacePtr> _sharedLinks;
     QVariant _savedAttempts;
     QVariant _savedInterval;
 };
