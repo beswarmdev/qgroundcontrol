@@ -94,7 +94,10 @@ Item {
         anchors.right:          parent.right
         anchors.bottom:         bottomRightRowLayout.top
         anchors.bottomMargin:   _margins * 2
-        maximumHeight:          parent.height * 0.45
+        // Stays below the camera controls when they are shown, and the list of vehicles gives up its height first
+        maximumHeight:          Math.min(parent.height * 0.45,
+                                         parent.height - bottomRightRowLayout.height - _margins * 2 -
+                                         (topRightColumnLayout.visible ? topRightColumnLayout.y + topRightColumnLayout.childrenRect.height + _margins : 0))
         confirmOverlay:         fleetConfirmOverlay
     }
 
