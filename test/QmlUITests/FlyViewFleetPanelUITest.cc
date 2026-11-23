@@ -211,7 +211,8 @@ void FlyViewFleetPanelUITest::_testLandAllConfirmsInCenterOverlay()
                                     .arg(overlayCenter.x())
                                     .arg(overlayCenter.y())));
             QCOMPARE(_visibleItemText(QStringLiteral("fleetConfirmTitle")), QStringLiteral("LAND ALL VEHICLES"));
-            QVERIFY(_visibleItemText(QStringLiteral("fleetConfirmMessage")).startsWith(QStringLiteral("1 armed vehicles")));
+            QVERIFY(
+                _visibleItemText(QStringLiteral("fleetConfirmMessage")).startsWith(QStringLiteral("1 armed vehicles")));
 
             // Nothing is sent before the confirmation: the vehicle never reaches Land and no command status appears
             const QString statusName = _vehicleObjectName(QStringLiteral("fleetCommandStatus_"), vehicle);
@@ -257,25 +258,24 @@ void FlyViewFleetPanelUITest::_testTakeoffAllSendsWithoutConfirmation()
 {
     _ignorePressureSensorNoise();
 
-    runWithMockLink(
-        [] { return MockLink::startPX4MockLink(); },
-        [this](QPointer<MockLink>, Vehicle* vehicle) {
-            QVERIFY(!vehicle->armed());
+    runWithMockLink([] { return MockLink::startPX4MockLink(); },
+                    [this](QPointer<MockLink>, Vehicle* vehicle) {
+                        QVERIFY(!vehicle->armed());
 
-            // No overlay and no slider: TAKEOFF ALL goes out on its own
-            QVERIFY(clickButton(QStringLiteral("fleetTakeoffAllButton")));
-            QVERIFY2(!findVisibleItem(_rootItem, QStringLiteral("fleetConfirmOverlay"), 0),
-                     "TAKEOFF ALL opened the confirmation overlay");
-            QVERIFY2(!findVisibleItem(_rootItem, QStringLiteral("guidedActionConfirmButton"), 0),
-                     "TAKEOFF ALL asked for a confirmation");
+                        // No overlay and no slider: TAKEOFF ALL goes out on its own
+                        QVERIFY(clickButton(QStringLiteral("fleetTakeoffAllButton")));
+                        QVERIFY2(!findVisibleItem(_rootItem, QStringLiteral("fleetConfirmOverlay"), 0),
+                                 "TAKEOFF ALL opened the confirmation overlay");
+                        QVERIFY2(!findVisibleItem(_rootItem, QStringLiteral("guidedActionConfirmButton"), 0),
+                                 "TAKEOFF ALL asked for a confirmation");
 
-            const int timeoutMs =
-                2 * FleetCommandController::kTakeoffStepTimeoutMs + FleetCommandController::kTakeoffClimbTimeoutMs;
-            QTRY_VERIFY_WITH_TIMEOUT(vehicle->armed() && vehicle->airborne(), timeoutMs);
-            const QString statusName = _vehicleObjectName(QStringLiteral("fleetCommandStatus_"), vehicle);
-            QTRY_COMPARE_WITH_TIMEOUT(_visibleItemText(statusName), QStringLiteral("Takeoff: airborne"),
-                                      TestTimeout::mediumMs());
-        });
+                        const int timeoutMs = 2 * FleetCommandController::kTakeoffStepTimeoutMs +
+                                              FleetCommandController::kTakeoffClimbTimeoutMs;
+                        QTRY_VERIFY_WITH_TIMEOUT(vehicle->armed() && vehicle->airborne(), timeoutMs);
+                        const QString statusName = _vehicleObjectName(QStringLiteral("fleetCommandStatus_"), vehicle);
+                        QTRY_COMPARE_WITH_TIMEOUT(_visibleItemText(statusName), QStringLiteral("Takeoff: airborne"),
+                                                  TestTimeout::mediumMs());
+                    });
 }
 
 void FlyViewFleetPanelUITest::_testRebootNeedsTwoConfirmations()
@@ -297,7 +297,8 @@ void FlyViewFleetPanelUITest::_testRebootNeedsTwoConfirmations()
                      "REBOOT ALL did not open the confirmation overlay");
             QCOMPARE(_visibleItemText(QStringLiteral("fleetConfirmTitle")), QStringLiteral("REBOOT ALL AUTOPILOTS"));
             QCOMPARE(_visibleItemText(QStringLiteral("fleetConfirmStep")), QStringLiteral("Step 1 of 2"));
-            QVERIFY(_visibleItemText(QStringLiteral("fleetConfirmMessage")).contains(QStringLiteral("1 of them are ARMED")));
+            QVERIFY(_visibleItemText(QStringLiteral("fleetConfirmMessage"))
+                        .contains(QStringLiteral("1 of them are ARMED")));
 
             // The first confirmation only brings up the second one
             QVERIFY(clickButton(QStringLiteral("fleetConfirmAcceptButton")));
@@ -325,59 +326,58 @@ void FlyViewFleetPanelUITest::_testRebootNeedsTwoConfirmations()
 
 void FlyViewFleetPanelUITest::_testResendFieldsEditSettings()
 {
-    runWithMockLink(
-        [] { return MockLink::startPX4MockLink(); },
-        [this](QPointer<MockLink>, Vehicle*) {
-            FlyViewSettings* const settings = SettingsManager::instance()->flyViewSettings();
-            QQuickItem* const attemptsField =
-                findVisibleItem(_rootItem, QStringLiteral("fleetAttemptsField"), TestTimeout::longMs());
-            QVERIFY2(attemptsField, "Sends field not visible");
-            QQuickItem* const intervalField =
-                findVisibleItem(_rootItem, QStringLiteral("fleetIntervalField"), TestTimeout::longMs());
-            QVERIFY2(intervalField, "Interval field not visible");
+    runWithMockLink([] { return MockLink::startPX4MockLink(); },
+                    [this](QPointer<MockLink>, Vehicle*) {
+                        FlyViewSettings* const settings = SettingsManager::instance()->flyViewSettings();
+                        QQuickItem* const attemptsField =
+                            findVisibleItem(_rootItem, QStringLiteral("fleetAttemptsField"), TestTimeout::longMs());
+                        QVERIFY2(attemptsField, "Sends field not visible");
+                        QQuickItem* const intervalField =
+                            findVisibleItem(_rootItem, QStringLiteral("fleetIntervalField"), TestTimeout::longMs());
+                        QVERIFY2(intervalField, "Interval field not visible");
 
-            const auto edit = [](QQuickItem* field, const QString& text) {
-                field->setProperty("text", text);
-                return QMetaObject::invokeMethod(field, "editingFinished");
-            };
+                        const auto edit = [](QQuickItem* field, const QString& text) {
+                            field->setProperty("text", text);
+                            return QMetaObject::invokeMethod(field, "editingFinished");
+                        };
 
-            // A valid value is stored, and the fields refuse anything outside the Fact's range
-            QVERIFY(edit(attemptsField, QStringLiteral("5")));
-            QTRY_COMPARE_WITH_TIMEOUT(settings->fleetCommandAttempts()->rawValue().toInt(), 5, TestTimeout::shortMs());
-            for (const QString& invalid : {QStringLiteral("0"), QStringLiteral("21")}) {
-                QVERIFY(edit(attemptsField, invalid));
-                QCOMPARE(settings->fleetCommandAttempts()->rawValue().toInt(), 5);
-            }
+                        // A valid value is stored, and the fields refuse anything outside the Fact's range
+                        QVERIFY(edit(attemptsField, QStringLiteral("5")));
+                        QTRY_COMPARE_WITH_TIMEOUT(settings->fleetCommandAttempts()->rawValue().toInt(), 5,
+                                                  TestTimeout::shortMs());
+                        for (const QString& invalid : {QStringLiteral("0"), QStringLiteral("21")}) {
+                            QVERIFY(edit(attemptsField, invalid));
+                            QCOMPARE(settings->fleetCommandAttempts()->rawValue().toInt(), 5);
+                        }
 
-            QVERIFY(edit(intervalField, QStringLiteral("7")));
-            QTRY_COMPARE_WITH_TIMEOUT(settings->fleetCommandIntervalSec()->rawValue().toInt(), 7,
-                                      TestTimeout::shortMs());
-            for (const QString& invalid : {QStringLiteral("0"), QStringLiteral("61")}) {
-                QVERIFY(edit(intervalField, invalid));
-                QCOMPARE(settings->fleetCommandIntervalSec()->rawValue().toInt(), 7);
-            }
-        });
+                        QVERIFY(edit(intervalField, QStringLiteral("7")));
+                        QTRY_COMPARE_WITH_TIMEOUT(settings->fleetCommandIntervalSec()->rawValue().toInt(), 7,
+                                                  TestTimeout::shortMs());
+                        for (const QString& invalid : {QStringLiteral("0"), QStringLiteral("61")}) {
+                            QVERIFY(edit(intervalField, invalid));
+                            QCOMPARE(settings->fleetCommandIntervalSec()->rawValue().toInt(), 7);
+                        }
+                    });
 }
 
 void FlyViewFleetPanelUITest::_testConfirmOverlayClosesWhenFleetEmpty()
 {
-    runWithMockLink(
-        [] { return MockLink::startPX4MockLink(); },
-        [this](QPointer<MockLink> mockLink, Vehicle* vehicle) {
-            vehicle->setArmed(true, false /* showError */);
-            QTRY_VERIFY_WITH_TIMEOUT(vehicle->armed(), TestTimeout::mediumMs());
+    runWithMockLink([] { return MockLink::startPX4MockLink(); },
+                    [this](QPointer<MockLink> mockLink, Vehicle* vehicle) {
+                        vehicle->setArmed(true, false /* showError */);
+                        QTRY_VERIFY_WITH_TIMEOUT(vehicle->armed(), TestTimeout::mediumMs());
 
-            QVERIFY(clickButton(QStringLiteral("fleetLandAllButton")));
-            const QPointer<QQuickItem> overlay =
-                findVisibleItem(_rootItem, QStringLiteral("fleetConfirmOverlay"), TestTimeout::mediumMs());
-            QVERIFY2(overlay, "LAND ALL did not open the confirmation overlay");
+                        QVERIFY(clickButton(QStringLiteral("fleetLandAllButton")));
+                        const QPointer<QQuickItem> overlay =
+                            findVisibleItem(_rootItem, QStringLiteral("fleetConfirmOverlay"), TestTimeout::mediumMs());
+                        QVERIFY2(overlay, "LAND ALL did not open the confirmation overlay");
 
-            // The last vehicle goes away while the overlay is open: it closes without running the command
-            disconnectMockLink(mockLink);
-            QTRY_VERIFY_WITH_TIMEOUT(!findVisibleItem(_rootItem, QStringLiteral("fleetConfirmOverlay"), 0),
-                                     TestTimeout::longMs());
-            QCOMPARE(overlay->property("currentStep").toInt(), 0);
-        });
+                        // The last vehicle goes away while the overlay is open: it closes without running the command
+                        disconnectMockLink(mockLink);
+                        QTRY_VERIFY_WITH_TIMEOUT(!findVisibleItem(_rootItem, QStringLiteral("fleetConfirmOverlay"), 0),
+                                                 TestTimeout::longMs());
+                        QCOMPARE(overlay->property("currentStep").toInt(), 0);
+                    });
 }
 
 void FlyViewFleetPanelUITest::_testFleetPanelLayoutWithMultiVehiclePanel()

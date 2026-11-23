@@ -79,9 +79,9 @@ void FleetCommandController::_start(Command command)
         _maxAttempts = settings
                            ? qBound(kMinAttempts, settings->fleetCommandAttempts()->rawValue().toInt(), kMaxAttempts)
                            : kMinAttempts;
-        const int intervalSec = settings ? qBound(kMinIntervalSec, settings->fleetCommandIntervalSec()->rawValue().toInt(),
-                                                  kMaxIntervalSec)
-                                         : kMinIntervalSec;
+        const int intervalSec =
+            settings ? qBound(kMinIntervalSec, settings->fleetCommandIntervalSec()->rawValue().toInt(), kMaxIntervalSec)
+                     : kMinIntervalSec;
         _attemptTimer->setInterval(intervalSec * 1000);
     }
 
@@ -337,8 +337,8 @@ void FleetCommandController::_stepTimedOut(quint32 id)
         qCWarning(FleetCommandControllerLog) << "vehicle:" << id << "command:" << _activeCommand
                                              << "failed: still connected after" << kRebootTimeoutMs << "ms";
     } else {
-        qCWarning(FleetCommandControllerLog) << "vehicle:" << id << "command:" << _activeCommand << "failed at step"
-                                             << it->step;
+        qCWarning(FleetCommandControllerLog)
+            << "vehicle:" << id << "command:" << _activeCommand << "failed at step" << it->step;
     }
     _resolve(id, VehicleState::Failed);
     _settle();
@@ -403,8 +403,7 @@ void FleetCommandController::_settle()
         if (wasBusy) {
             emit finished(_activeCommand);
         }
-    } else if (((_activeCommand == Command::RTL) || (_activeCommand == Command::Land)) &&
-               !_attemptTimer->isActive()) {
+    } else if (((_activeCommand == Command::RTL) || (_activeCommand == Command::Land)) && !_attemptTimer->isActive()) {
         _attemptTimer->start();
     }
 }

@@ -586,9 +586,9 @@ void FleetCommandControllerTest::_testTakeoffAll()
         QCOMPARE(vehicle->flightMode(), vehicle->readiness()->takeoffArmFlightMode());
         QCOMPARE(links[i]->receivedMavCommandCount(MAV_CMD_NAV_TAKEOFF), 1);
         if (autopilot == MAV_AUTOPILOT_ARDUPILOTMEGA) {
-            QTRY_VERIFY_WITH_TIMEOUT(qAbs(vehicle->altitudeRelative()->rawValue().toDouble() -
-                                          controller.takeoffAltitude()) < 0.5,
-                                     TestTimeout::mediumMs());
+            QTRY_VERIFY_WITH_TIMEOUT(
+                qAbs(vehicle->altitudeRelative()->rawValue().toDouble() - controller.takeoffAltitude()) < 0.5,
+                TestTimeout::mediumMs());
         }
     }
 
@@ -616,9 +616,9 @@ void FleetCommandControllerTest::_testTakeoffSkipsAirborneAndUnsupported()
     QVERIFY(finishedSpy.isValid());
 
     controller.takeoffAll();
-    QTRY_COMPARE_WITH_TIMEOUT(_state(controller, copter), int(FleetCommandController::VehicleState::Succeeded),
-                              2 * FleetCommandController::kTakeoffStepTimeoutMs +
-                                  FleetCommandController::kTakeoffClimbTimeoutMs);
+    QTRY_COMPARE_WITH_TIMEOUT(
+        _state(controller, copter), int(FleetCommandController::VehicleState::Succeeded),
+        2 * FleetCommandController::kTakeoffStepTimeoutMs + FleetCommandController::kTakeoffClimbTimeoutMs);
     QCOMPARE(_state(controller, sub), int(FleetCommandController::VehicleState::Unsupported));
     QCOMPARE(_attempt(controller, sub), 0);
     QCOMPARE(finishedSpy.count(), 1);
@@ -642,9 +642,9 @@ void FleetCommandControllerTest::_testTakeoffStepTimeoutFails()
     QVERIFY(vehicle);
 
     FleetCommandController controller;
-    expectLogMessage("Vehicle.FleetCommandController", QtWarningMsg,
-                     QRegularExpression(QStringLiteral("vehicle: %1 command: .*Takeoff failed at step .*Mode")
-                                            .arg(vehicle->id())));
+    expectLogMessage(
+        "Vehicle.FleetCommandController", QtWarningMsg,
+        QRegularExpression(QStringLiteral("vehicle: %1 command: .*Takeoff failed at step .*Mode").arg(vehicle->id())));
 
     link->clearReceivedMavCommandCounts();
     _setCommLost(link, true);
@@ -736,9 +736,10 @@ void FleetCommandControllerTest::_testRebootFailsWithoutAck()
                                                        "MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN")));
     // The vehicle reports its own failure first, when the command queue gives up
     expectAppMessage(QRegularExpression(QStringLiteral("Vehicle reboot failed")));
-    expectLogMessage("Vehicle.FleetCommandController", QtWarningMsg,
-                     QRegularExpression(QStringLiteral("vehicle: %1 command: .*Reboot failed: still connected after")
-                                            .arg(vehicle->id())));
+    expectLogMessage(
+        "Vehicle.FleetCommandController", QtWarningMsg,
+        QRegularExpression(
+            QStringLiteral("vehicle: %1 command: .*Reboot failed: still connected after").arg(vehicle->id())));
 
     controller.rebootAll();
 
