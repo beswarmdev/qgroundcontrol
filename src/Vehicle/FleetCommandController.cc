@@ -1,5 +1,6 @@
 #include "FleetCommandController.h"
 
+#include <QtCore/QSet>
 #include <QtCore/QTimer>
 
 #include "Fact.h"
@@ -69,6 +70,15 @@ void FleetCommandController::cancel()
 
 void FleetCommandController::_start(Command command)
 {
+    // A takeoff which gets replaced may have sent the arming already, which a still disarmed vehicle does not show yet
+    QSet<quint32> arming;
+    for (auto it = _entries.cbegin(); it != _entries.cend(); ++it) {
+        const bool armingSent = (it->step == TakeoffStep::Arm) || (it->step == TakeoffStep::Climb);
+        if (armingSent && ((it->state == VehicleState::Pending) || (it->state == VehicleState::Cancelled))) {
+            arming.insert(it.key());
+        }
+    }
+
     // A command in progress is replaced without reporting it as finished
     _releaseEntries();
 
@@ -89,7 +99,7 @@ void FleetCommandController::_start(Command command)
     for (int i = 0; vehicles && (i < vehicles->count()); i++) {
         Vehicle* const vehicle = vehicles->value<Vehicle*>(i);
         if (vehicle) {
-            _entries.insert(vehicle->id(), _classify(command, vehicle));
+            _entries.insert(vehicle->id(), _classify(command, vehicle, arming.contains(vehicle->id())));
         }
     }
 
@@ -119,7 +129,8 @@ void FleetCommandController::_start(Command command)
     }
 }
 
-FleetCommandController::VehicleEntry FleetCommandController::_classify(Command command, Vehicle* vehicle) const
+FleetCommandController::VehicleEntry FleetCommandController::_classify(Command command, Vehicle* vehicle,
+                                                                       bool armingSent) const
 {
     VehicleEntry entry;
     entry.vehicle = vehicle;
@@ -144,7 +155,7 @@ FleetCommandController::VehicleEntry FleetCommandController::_classify(Command c
     entry.targetMode = (command == Command::Land) ? vehicle->landFlightMode() : vehicle->rtlFlightMode();
     if (entry.targetMode.isEmpty()) {
         entry.state = VehicleState::Unsupported;
-    } else if (!vehicle->armed()) {
+    } else if (!vehicle->armed() && !armingSent) {
         entry.state = VehicleState::Skipped;
     } else {
         // A vehicle that is already in the target mode still gets every send

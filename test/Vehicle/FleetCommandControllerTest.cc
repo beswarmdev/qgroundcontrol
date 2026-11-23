@@ -694,6 +694,34 @@ void FleetCommandControllerTest::_testLandCancelsTakeoff()
     QVERIFY(!vehicle->armed());
 }
 
+void FleetCommandControllerTest::_testLandReachesVehicleBeingArmed()
+{
+    _setAttempts(3);
+    MockLink* const link = _startLink(MAV_AUTOPILOT_PX4);
+    Vehicle* const vehicle = _connectVehicle(link, false);
+    QVERIFY(vehicle);
+
+    // Already in the mode the takeoff arms in, so the first thing it does is arm
+    const QString armMode = vehicle->readiness()->takeoffArmFlightMode();
+    vehicle->setFlightMode(armMode);
+    QTRY_COMPARE_WITH_TIMEOUT(vehicle->flightMode(), armMode, TestTimeout::shortMs());
+
+    FleetCommandController controller;
+    _setCommLost(link, true);
+    controller.takeoffAll();
+    QCOMPARE(_step(controller, vehicle), int(FleetCommandController::TakeoffStep::Arm));
+    QVERIFY(!vehicle->armed());
+
+    // The arming is on its way, so the vehicle must not be skipped as if it were disarmed
+    controller.landAll();
+    QCOMPARE(_state(controller, vehicle), int(FleetCommandController::VehicleState::Pending));
+
+    _setCommLost(link, false);
+    QTRY_COMPARE_WITH_TIMEOUT(_state(controller, vehicle), int(FleetCommandController::VehicleState::Succeeded),
+                              4 * _intervalMs() + TestTimeout::longMs());
+    QCOMPARE(vehicle->flightMode(), vehicle->landFlightMode());
+}
+
 void FleetCommandControllerTest::_testRebootAllIncludingArmed()
 {
     Vehicle* const armed = _connectVehicle(_startLink(MAV_AUTOPILOT_PX4), true);

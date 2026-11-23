@@ -39,6 +39,7 @@ private slots:
     void _testTakeoffSkipsAirborneAndUnsupported();
     void _testTakeoffStepTimeoutFails();
     void _testLandCancelsTakeoff();
+    void _testLandReachesVehicleBeingArmed();
     void _testRebootAllIncludingArmed();
     void _testRebootFailsWithoutAck();
 

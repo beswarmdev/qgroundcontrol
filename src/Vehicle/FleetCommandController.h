@@ -102,7 +102,7 @@ private:
     };
 
     void _start(Command command);
-    VehicleEntry _classify(Command command, Vehicle* vehicle) const;
+    VehicleEntry _classify(Command command, Vehicle* vehicle, bool armingSent) const;
     void _begin(quint32 id);
     void _sendAttempt(quint32 id);
     void _attemptWindowElapsed();
