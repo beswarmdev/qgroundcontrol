@@ -71,7 +71,6 @@ public:
 
     double takeoffAltitude() const { return kTakeoffAltitudeMeters; }
 
-    static constexpr int kAttemptTimeoutMs = 2000;
     static constexpr int kMinAttempts = 1;
     static constexpr int kMaxAttempts = 20;
     static constexpr int kMinIntervalSec = 1;
@@ -94,6 +93,7 @@ private:
         QString targetMode;
         VehicleState state = VehicleState::Pending;
         int attempt = 0;
+        bool confirmed = false;
         QMetaObject::Connection modeConnection;
     };
 

@@ -17,7 +17,6 @@ FleetCommandController::FleetCommandController(QObject* parent)
     , _attemptTimer(new QTimer(this))
 {
     _attemptTimer->setSingleShot(true);
-    _attemptTimer->setInterval(kAttemptTimeoutMs);
     (void) connect(_attemptTimer, &QTimer::timeout, this, &FleetCommandController::_attemptWindowElapsed);
     (void) connect(MultiVehicleManager::instance(), &MultiVehicleManager::vehicleRemoved, this,
                    &FleetCommandController::_vehicleRemoved);
@@ -74,6 +73,10 @@ void FleetCommandController::_start(Command command)
     FlyViewSettings* const settings = SettingsManager::instance()->flyViewSettings();
     _maxAttempts = settings ? qBound(kMinAttempts, settings->fleetCommandAttempts()->rawValue().toInt(), kMaxAttempts)
                             : kMinAttempts;
+    const int intervalSec =
+        settings ? qBound(kMinIntervalSec, settings->fleetCommandIntervalSec()->rawValue().toInt(), kMaxIntervalSec)
+                 : kMinIntervalSec;
+    _attemptTimer->setInterval(intervalSec * 1000);
 
     const QmlObjectListModel* const vehicles = MultiVehicleManager::instance()->vehicles();
     for (int i = 0; vehicles && (i < vehicles->count()); i++) {
@@ -90,9 +93,9 @@ void FleetCommandController::_start(Command command)
             entry.state = VehicleState::Unsupported;
         } else if (!vehicle->armed()) {
             entry.state = VehicleState::Skipped;
-        } else if (vehicle->flightMode() == entry.targetMode) {
-            entry.state = VehicleState::Succeeded;
         } else {
+            // A vehicle that is already in the target mode still gets every send
+            entry.confirmed = (vehicle->flightMode() == entry.targetMode);
             entry.modeConnection = connect(vehicle, &Vehicle::flightModeChanged, this,
                                            [this, id](const QString& mode) { _flightModeChanged(id, mode); });
         }
@@ -151,10 +154,14 @@ void FleetCommandController::_attemptWindowElapsed()
 
         if (!it->vehicle) {
             _entries.erase(it);
-        } else if (it->vehicle->flightMode() == it->targetMode) {
-            _resolve(id, VehicleState::Succeeded);
-        } else if (it->attempt < _maxAttempts) {
+            continue;
+        }
+
+        it->confirmed = (it->vehicle->flightMode() == it->targetMode);
+        if (it->attempt < _maxAttempts) {
             _sendAttempt(id);
+        } else if (it->confirmed) {
+            _resolve(id, VehicleState::Succeeded);
         } else {
             qCWarning(FleetCommandControllerLog)
                 << "vehicle:" << id << "command:" << _activeCommand << "failed after" << it->attempt << "attempts";
@@ -167,12 +174,15 @@ void FleetCommandController::_attemptWindowElapsed()
 
 void FleetCommandController::_flightModeChanged(quint32 id, const QString& mode)
 {
-    const auto it = _entries.constFind(id);
-    if ((it == _entries.constEnd()) || (it->state != VehicleState::Pending) || (mode != it->targetMode)) {
+    const auto it = _entries.find(id);
+    if ((it == _entries.end()) || (it->state != VehicleState::Pending)) {
         return;
     }
 
-    _resolve(id, VehicleState::Succeeded);
+    it->confirmed = (mode == it->targetMode);
+    if (it->confirmed && (it->attempt >= _maxAttempts)) {
+        _resolve(id, VehicleState::Succeeded);
+    }
     _settle();
 }
 
@@ -228,6 +238,8 @@ void FleetCommandController::_publish()
                                                      {QStringLiteral("state"), static_cast<int>(it->state)},
                                                      {QStringLiteral("attempt"), it->attempt},
                                                      {QStringLiteral("maxAttempts"), _maxAttempts},
+                                                     {QStringLiteral("confirmed"), it->confirmed},
+                                                     {QStringLiteral("step"), static_cast<int>(TakeoffStep::None)},
                                                  });
     }
 

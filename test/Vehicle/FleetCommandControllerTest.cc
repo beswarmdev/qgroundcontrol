@@ -25,6 +25,11 @@ void FleetCommandControllerTest::init()
 
     MultiVehicleManager::instance()->init();
     _savedAttempts = SettingsManager::instance()->flyViewSettings()->fleetCommandAttempts()->rawValue();
+    _savedInterval = SettingsManager::instance()->flyViewSettings()->fleetCommandIntervalSec()->rawValue();
+
+    // One send per vehicle, one second apart, unless the test asks for more
+    _setAttempts(1);
+    _setInterval(1);
 }
 
 void FleetCommandControllerTest::cleanup()
@@ -32,6 +37,7 @@ void FleetCommandControllerTest::cleanup()
     dumpFailureContextIfTestFailed(QStringLiteral("before FleetCommandControllerTest teardown"));
     _disconnectLinks();
     SettingsManager::instance()->flyViewSettings()->fleetCommandAttempts()->setRawValue(_savedAttempts);
+    SettingsManager::instance()->flyViewSettings()->fleetCommandIntervalSec()->setRawValue(_savedInterval);
     UnitTest::cleanup();
 }
 
@@ -104,6 +110,16 @@ void FleetCommandControllerTest::_setAttempts(int attempts)
     SettingsManager::instance()->flyViewSettings()->fleetCommandAttempts()->setRawValue(attempts);
 }
 
+void FleetCommandControllerTest::_setInterval(int seconds)
+{
+    SettingsManager::instance()->flyViewSettings()->fleetCommandIntervalSec()->setRawValue(seconds);
+}
+
+int FleetCommandControllerTest::_intervalMs()
+{
+    return SettingsManager::instance()->flyViewSettings()->fleetCommandIntervalSec()->rawValue().toInt() * 1000;
+}
+
 void FleetCommandControllerTest::_ignoreUnansweredCommandNoise()
 {
     // ArduPilot changes mode with MAV_CMD_DO_SET_MODE. When its link is mute the command queue gives up, and it
@@ -153,6 +169,11 @@ int FleetCommandControllerTest::_attempt(const FleetCommandController& controlle
 int FleetCommandControllerTest::_maxAttempts(const FleetCommandController& controller, const Vehicle* vehicle)
 {
     return _entry(controller, vehicle).value(QStringLiteral("maxAttempts"), -1).toInt();
+}
+
+bool FleetCommandControllerTest::_confirmed(const FleetCommandController& controller, const Vehicle* vehicle)
+{
+    return _entry(controller, vehicle).value(QStringLiteral("confirmed"), false).toBool();
 }
 
 void FleetCommandControllerTest::_testCommandAllSucceeds_data()
@@ -256,6 +277,8 @@ void FleetCommandControllerTest::_testRetriesThenFails()
     }
 
     _setAttempts(2);
+    // An unanswered mode change keeps the ArduPilot command queue busy for 1.2 s, and the queue refuses a second one
+    _setInterval(2);
     MockLink* const link = _startLink(MAV_AUTOPILOT_ARDUPILOTMEGA);
     Vehicle* const vehicle = _connectVehicle(link, true);
     QVERIFY(vehicle);
@@ -274,7 +297,7 @@ void FleetCommandControllerTest::_testRetriesThenFails()
     controller.landAll();
 
     QTRY_COMPARE_WITH_TIMEOUT(_state(controller, vehicle), int(FleetCommandController::VehicleState::Failed),
-                              3 * FleetCommandController::kAttemptTimeoutMs + TestTimeout::shortMs());
+                              3 * _intervalMs() + TestTimeout::shortMs());
     verifyExpectedLogMessage();
     QCOMPARE(_attempt(controller, vehicle), 2);
     QCOMPARE(_maxAttempts(controller, vehicle), 2);
@@ -295,15 +318,14 @@ void FleetCommandControllerTest::_testSucceedsWhenLinkReturns()
     _setCommLost(link, true);
     controller.rtlAll();
 
-    QTRY_VERIFY_WITH_TIMEOUT(_attempt(controller, vehicle) >= 2,
-                             3 * FleetCommandController::kAttemptTimeoutMs + TestTimeout::shortMs());
+    QTRY_VERIFY_WITH_TIMEOUT(_attempt(controller, vehicle) >= 2, 3 * _intervalMs() + TestTimeout::shortMs());
     QCOMPARE(_state(controller, vehicle), int(FleetCommandController::VehicleState::Pending));
 
     _setCommLost(link, false);
 
     QTRY_COMPARE_WITH_TIMEOUT(_state(controller, vehicle), int(FleetCommandController::VehicleState::Succeeded),
-                              TestTimeout::longMs());
-    QVERIFY(_attempt(controller, vehicle) <= 5);
+                              6 * _intervalMs() + TestTimeout::longMs());
+    QCOMPARE(_attempt(controller, vehicle), 5);
     QCOMPARE(vehicle->flightMode(), vehicle->rtlFlightMode());
 }
 
@@ -338,7 +360,7 @@ void FleetCommandControllerTest::_testLandOverridesRtl()
     // A leftover RTL attempt would flip the vehicle back to RTL
     QSignalSpy flightModeSpy(vehicle, &Vehicle::flightModeChanged);
     QVERIFY(flightModeSpy.isValid());
-    QVERIFY_NO_SIGNAL_WAIT(flightModeSpy, 2 * FleetCommandController::kAttemptTimeoutMs);
+    QVERIFY_NO_SIGNAL_WAIT(flightModeSpy, 2 * _intervalMs());
 
     QCOMPARE(finishedSpy.count(), 1);
     QCOMPARE(finishedSpy[0][0].value<FleetCommandController::Command>(), FleetCommandController::Command::Land);
@@ -406,8 +428,97 @@ void FleetCommandControllerTest::_testCancelStopsResending()
     // Created after cancel(), which itself emits vehicleStatusChanged
     QSignalSpy statusSpy(&controller, &FleetCommandController::vehicleStatusChanged);
     QVERIFY(statusSpy.isValid());
-    QVERIFY_NO_SIGNAL_WAIT(statusSpy, 2 * FleetCommandController::kAttemptTimeoutMs);
+    QVERIFY_NO_SIGNAL_WAIT(statusSpy, 2 * _intervalMs());
     QCOMPARE(link->receivedMavCommandCount(MAV_CMD_DO_SET_MODE), 0);
+}
+
+void FleetCommandControllerTest::_testSendsEveryAttemptAfterConfirmation()
+{
+    if (!apmFirmwareSupported()) {
+        QSKIP("ArduPilot support not registered in this build");
+    }
+
+    _setAttempts(3);
+    MockLink* const link = _startLink(MAV_AUTOPILOT_ARDUPILOTMEGA);
+    Vehicle* const vehicle = _connectVehicle(link, true);
+    QVERIFY(vehicle);
+
+    FleetCommandController controller;
+    link->clearReceivedMavCommandCounts();
+    controller.landAll();
+
+    // The vehicle reports Land after the first send, and the remaining sends still go out
+    QTRY_VERIFY_WITH_TIMEOUT(_confirmed(controller, vehicle), TestTimeout::shortMs());
+    QCOMPARE(_state(controller, vehicle), int(FleetCommandController::VehicleState::Pending));
+
+    QTRY_COMPARE_WITH_TIMEOUT(_state(controller, vehicle), int(FleetCommandController::VehicleState::Succeeded),
+                              4 * _intervalMs() + TestTimeout::shortMs());
+    QCOMPARE(_attempt(controller, vehicle), 3);
+    QCOMPARE(link->receivedMavCommandCount(MAV_CMD_DO_SET_MODE), 3);
+}
+
+void FleetCommandControllerTest::_testReassertsTargetMode()
+{
+    if (!apmFirmwareSupported()) {
+        QSKIP("ArduPilot support not registered in this build");
+    }
+
+    _setAttempts(3);
+    MockLink* const link = _startLink(MAV_AUTOPILOT_ARDUPILOTMEGA);
+    Vehicle* const vehicle = _connectVehicle(link, true);
+    QVERIFY(vehicle);
+
+    FleetCommandController controller;
+    _ignoreUnansweredCommandNoise();
+    controller.rtlAll();
+    QTRY_COMPARE_WITH_TIMEOUT(vehicle->flightMode(), vehicle->rtlFlightMode(), TestTimeout::shortMs());
+
+    // Somebody else takes the vehicle out of RTL while the sends are still going out
+    vehicle->setFlightMode(vehicle->pauseFlightMode());
+    QTRY_COMPARE_WITH_TIMEOUT(vehicle->flightMode(), vehicle->pauseFlightMode(), TestTimeout::shortMs());
+    QVERIFY(!_confirmed(controller, vehicle));
+
+    QTRY_COMPARE_WITH_TIMEOUT(_state(controller, vehicle), int(FleetCommandController::VehicleState::Succeeded),
+                              4 * _intervalMs() + TestTimeout::longMs());
+    QCOMPARE(vehicle->flightMode(), vehicle->rtlFlightMode());
+}
+
+void FleetCommandControllerTest::_testSettingsSnapshotPerCommand()
+{
+    _setAttempts(3);
+    MockLink* const link = _startLink(MAV_AUTOPILOT_PX4);
+    Vehicle* const vehicle = _connectVehicle(link, true);
+    QVERIFY(vehicle);
+
+    FleetCommandController controller;
+    _setCommLost(link, true);
+    controller.rtlAll();
+    QCOMPARE(_attempt(controller, vehicle), 1);
+
+    // The command that is running keeps the number of sends and the interval it started with
+    _setAttempts(7);
+    _setInterval(5);
+    QCOMPARE(_maxAttempts(controller, vehicle), 3);
+    QTRY_COMPARE_WITH_TIMEOUT(_attempt(controller, vehicle), 2, 1000 + TestTimeout::shortMs() / 2);
+}
+
+void FleetCommandControllerTest::_testIntervalFromSettings()
+{
+    _setAttempts(2);
+    _setInterval(3);
+    MockLink* const link = _startLink(MAV_AUTOPILOT_PX4);
+    Vehicle* const vehicle = _connectVehicle(link, true);
+    QVERIFY(vehicle);
+
+    FleetCommandController controller;
+    _setCommLost(link, true);
+    controller.rtlAll();
+    QCOMPARE(_attempt(controller, vehicle), 1);
+
+    // The second send waits for the whole configured interval
+    QVERIFY2(!QTest::qWaitFor([&] { return _attempt(controller, vehicle) >= 2; }, 2500),
+             "Second send went out before the configured interval");
+    QTRY_COMPARE_WITH_TIMEOUT(_attempt(controller, vehicle), 2, 1000 + TestTimeout::shortMs());
 }
 
 UT_REGISTER_TEST(FleetCommandControllerTest, TestLabel::Integration, TestLabel::Vehicle)
