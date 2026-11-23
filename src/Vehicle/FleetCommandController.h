@@ -12,7 +12,7 @@ class Vehicle;
 
 Q_DECLARE_LOGGING_CATEGORY(FleetCommandControllerLog)
 
-/// Sends RTL or Land to every connected vehicle and retries until each one reports the target flight mode.
+/// Sends RTL, Land, Takeoff or Reboot to every connected vehicle and tracks the result per vehicle.
 class FleetCommandController : public QObject
 {
     Q_OBJECT
@@ -20,6 +20,7 @@ class FleetCommandController : public QObject
     Q_PROPERTY(bool busy READ busy NOTIFY busyChanged)
     Q_PROPERTY(Command activeCommand READ activeCommand NOTIFY activeCommandChanged)
     Q_PROPERTY(QVariantMap vehicleStatus READ vehicleStatus NOTIFY vehicleStatusChanged)
+    Q_PROPERTY(double takeoffAltitude READ takeoffAltitude CONSTANT)
 
 public:
     explicit FleetCommandController(QObject* parent = nullptr);
@@ -29,7 +30,9 @@ public:
     {
         None,
         RTL,
-        Land
+        Land,
+        Takeoff,
+        Reboot
     };
     Q_ENUM(Command)
 
@@ -44,8 +47,20 @@ public:
     };
     Q_ENUM(VehicleState)
 
+    /// Where a takeoff is, or where it stopped when it failed
+    enum class TakeoffStep
+    {
+        None,
+        Mode,
+        Arm,
+        Climb
+    };
+    Q_ENUM(TakeoffStep)
+
     Q_INVOKABLE void rtlAll();
     Q_INVOKABLE void landAll();
+    Q_INVOKABLE void takeoffAll();
+    Q_INVOKABLE void rebootAll();
     Q_INVOKABLE void cancel();
 
     bool busy() const { return _busy; }
@@ -54,9 +69,17 @@ public:
 
     QVariantMap vehicleStatus() const { return _vehicleStatus; }
 
+    double takeoffAltitude() const { return kTakeoffAltitudeMeters; }
+
     static constexpr int kAttemptTimeoutMs = 2000;
     static constexpr int kMinAttempts = 1;
     static constexpr int kMaxAttempts = 20;
+    static constexpr int kMinIntervalSec = 1;
+    static constexpr int kMaxIntervalSec = 60;
+    static constexpr double kTakeoffAltitudeMeters = 5.0;
+    static constexpr int kTakeoffStepTimeoutMs = 5000;
+    static constexpr int kTakeoffClimbTimeoutMs = 15000;
+    static constexpr int kRebootTimeoutMs = 6000;
 
 signals:
     void busyChanged();

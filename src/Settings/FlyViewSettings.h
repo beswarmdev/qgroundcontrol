@@ -34,4 +34,5 @@ public:
     DEFINE_SETTINGFACT(enableAutomaticMissionPopups)
     DEFINE_SETTINGFACT(allowForceArm)
     DEFINE_SETTINGFACT(fleetCommandAttempts)
+    DEFINE_SETTINGFACT(fleetCommandIntervalSec)
 };

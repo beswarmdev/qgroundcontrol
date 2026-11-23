@@ -38,6 +38,16 @@ void FleetCommandController::landAll()
     _start(Command::Land);
 }
 
+void FleetCommandController::takeoffAll()
+{
+    qCDebug(FleetCommandControllerLog) << "not implemented";
+}
+
+void FleetCommandController::rebootAll()
+{
+    qCDebug(FleetCommandControllerLog) << "not implemented";
+}
+
 void FleetCommandController::cancel()
 {
     if (!_busy) {
