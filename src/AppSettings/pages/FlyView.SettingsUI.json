@@ -71,10 +71,13 @@
         },
         {
             "heading": "Fleet Panel",
-            "keywords": ["fleet", "swarm", "rtl", "land", "retry", "attempts"],
+            "keywords": ["fleet", "swarm", "rtl", "land", "retry", "attempts", "interval"],
             "controls": [
                 {
                     "setting": "flyViewSettings.fleetCommandAttempts"
+                },
+                {
+                    "setting": "flyViewSettings.fleetCommandIntervalSec"
                 }
             ]
         },

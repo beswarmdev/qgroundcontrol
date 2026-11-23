@@ -5,22 +5,26 @@ import QtQuick.Layouts
 
 import QGroundControl
 import QGroundControl.Controls
+import QGroundControl.FactControls
 
-/// Collapsible list of every connected vehicle with its link state, plus the fleet wide RTL and Land buttons
+/// Collapsible list of every connected vehicle with its link state, plus the fleet wide Takeoff, Reboot, RTL and Land buttons
 Item {
     id: root
     objectName: "flyViewFleetPanel"
 
     property real maximumHeight
+    /// FleetConfirmOverlay which asks for the confirmation of Land and Reboot
+    property var confirmOverlay
 
     readonly property bool expanded: _expanded
     readonly property alias controller: fleetController
 
-    readonly property var _guidedController: globals.guidedControllerFlyView
     readonly property string _expandedSettingsKey: "FlyViewFleetPanelExpanded"
     readonly property real _margin: ScreenTools.defaultFontPixelWidth / 2
     readonly property real _dotSize: ScreenTools.defaultFontPixelHeight * 0.6
+    readonly property real _fieldWidth: ScreenTools.defaultFontPixelWidth * 6
     readonly property var _vehicles: QGroundControl.multiVehicleManager.vehicles
+    readonly property var _flyViewSettings: QGroundControl.settingsManager.flyViewSettings
     readonly property int _lostCount: _countLostVehicles()
     property bool _expanded: true
 
@@ -35,13 +39,67 @@ Item {
         return lost
     }
 
+    function _countArmedVehicles() {
+        let armed = 0
+        for (let i = 0; i < _vehicles.count; i++) {
+            const vehicle = _vehicles.get(i)
+            if (vehicle && vehicle.armed) {
+                armed++
+            }
+        }
+        return armed
+    }
+
     function _setExpanded(value) {
         _expanded = value
         QGroundControl.saveBoolGlobalSetting(_expandedSettingsKey, value)
     }
 
+    function _confirmLand() {
+        if (!confirmOverlay) {
+            return
+        }
+        confirmOverlay.show([{
+            title: qsTr("LAND ALL VEHICLES"),
+            message: qsTr("%1 armed vehicles will land at their current position.").arg(_countArmedVehicles()),
+            confirmText: qsTr("LAND ALL"),
+            accentColor: qgcPal.colorRed
+        }], function() { fleetController.landAll() })
+    }
+
+    function _confirmReboot() {
+        if (!confirmOverlay) {
+            return
+        }
+        const count = _vehicles.count
+        const armed = _countArmedVehicles()
+        let message = qsTr("%1 vehicles will reboot their flight controller and lose their link until it restarts.").arg(count)
+        if (armed > 0) {
+            message += "\n" + qsTr("WARNING: %1 of them are ARMED.").arg(armed)
+        }
+        confirmOverlay.show([{
+            title: qsTr("REBOOT ALL AUTOPILOTS"),
+            message: message,
+            confirmText: qsTr("REBOOT ALL"),
+            accentColor: qgcPal.colorOrange
+        }, {
+            title: qsTr("CONFIRM REBOOT"),
+            message: qsTr("Second confirmation: reboot %1 autopilots now?").arg(count),
+            confirmText: qsTr("YES, REBOOT NOW"),
+            accentColor: qgcPal.colorRed
+        }], function() { fleetController.rebootAll() })
+    }
+
     function _commandName() {
-        return fleetController.activeCommand === FleetCommandController.Command.Land ? qsTr("Land") : qsTr("RTL")
+        switch (fleetController.activeCommand) {
+        case FleetCommandController.Command.Land:
+            return qsTr("Land")
+        case FleetCommandController.Command.Takeoff:
+            return qsTr("Takeoff")
+        case FleetCommandController.Command.Reboot:
+            return qsTr("Reboot")
+        }
+        return qsTr("RTL")
     }
 
     function _entryFor(vehicleId) {
@@ -63,14 +121,13 @@ Item {
         return qsTr("%1 · Loss %2%").arg(linkName).arg(vehicle.mavlinkLossPercent.toFixed(0))
     }
 
-    function _statusText(entry) {
-        if (!entry) {
-            return ""
-        }
+    function _resendStatusText(entry) {
         const command = _commandName()
         switch (entry.state) {
         case FleetCommandController.VehicleState.Pending:
-            return qsTr("%1: attempt %2 of %3").arg(command).arg(entry.attempt).arg(entry.maxAttempts)
+            return entry.confirmed
+                    ? qsTr("%1: sent %2 of %3, confirmed").arg(command).arg(entry.attempt).arg(entry.maxAttempts)
+                    : qsTr("%1: sent %2 of %3").arg(command).arg(entry.attempt).arg(entry.maxAttempts)
         case FleetCommandController.VehicleState.Succeeded:
             return qsTr("%1: confirmed").arg(command)
         case FleetCommandController.VehicleState.Failed:
@@ -83,6 +140,63 @@ Item {
             return qsTr("%1: stopped").arg(command)
         }
         return ""
+    }
+
+    function _takeoffStatusText(entry) {
+        switch (entry.state) {
+        case FleetCommandController.VehicleState.Pending:
+            switch (entry.step) {
+            case FleetCommandController.TakeoffStep.Mode:
+                return qsTr("Takeoff: setting mode")
+            case FleetCommandController.TakeoffStep.Arm:
+                return qsTr("Takeoff: arming")
+            }
+            return qsTr("Takeoff: climbing to %1 m").arg(fleetController.takeoffAltitude)
+        case FleetCommandController.VehicleState.Succeeded:
+            return qsTr("Takeoff: airborne")
+        case FleetCommandController.VehicleState.Failed:
+            switch (entry.step) {
+            case FleetCommandController.TakeoffStep.Mode:
+                return qsTr("Takeoff: failed (mode)")
+            case FleetCommandController.TakeoffStep.Arm:
+                return qsTr("Takeoff: failed (arming)")
+            }
+            return qsTr("Takeoff: failed (no climb)")
+        case FleetCommandController.VehicleState.Unsupported:
+            return qsTr("Takeoff: not supported")
+        case FleetCommandController.VehicleState.Skipped:
+            return qsTr("Takeoff: skipped (airborne)")
+        case FleetCommandController.VehicleState.Cancelled:
+            return qsTr("Takeoff: stopped")
+        }
+        return ""
+    }
+
+    function _rebootStatusText(entry) {
+        switch (entry.state) {
+        case FleetCommandController.VehicleState.Pending:
+            return qsTr("Reboot: sent")
+        case FleetCommandController.VehicleState.Succeeded:
+            return qsTr("Reboot: accepted")
+        case FleetCommandController.VehicleState.Failed:
+            return qsTr("Reboot: failed")
+        case FleetCommandController.VehicleState.Cancelled:
+            return qsTr("Reboot: stopped")
+        }
+        return ""
+    }
+
+    function _statusText(entry) {
+        if (!entry) {
+            return ""
+        }
+        switch (fleetController.activeCommand) {
+        case FleetCommandController.Command.Takeoff:
+            return _takeoffStatusText(entry)
+        case FleetCommandController.Command.Reboot:
+            return _rebootStatusText(entry)
+        }
+        return _resendStatusText(entry)
     }
 
     function _statusColor(entry) {
@@ -123,6 +237,17 @@ Item {
     QGCPalette { id: qgcPal }
 
     FleetCommandController { id: fleetController }
+
+    Connections {
+        target: root._vehicles
+
+        function onCountChanged() {
+            // Nothing is left to command, so a pending confirmation has no meaning
+            if (root._vehicles.count === 0 && root.confirmOverlay) {
+                root.confirmOverlay.cancel()
+            }
+        }
+    }
 
     Rectangle {
         anchors.fill: parent
@@ -273,7 +398,7 @@ Item {
             }
         }
 
-        // Above the action row: the panel grows upwards, so the RTL and LAND buttons stay where the finger last was
+        // Above the action rows: the panel grows upwards, so the buttons stay where the finger last was
         QGCLabel {
             objectName: "fleetSummary"
             Layout.fillWidth: true
@@ -286,8 +411,59 @@ Item {
             objectName: "fleetStopButton"
             Layout.fillWidth: true
             visible: fleetController.busy
-            text: qsTr("Stop retries")
+            text: qsTr("Stop")
             onClicked: fleetController.cancel()
+        }
+
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: root._margin
+            visible: root._expanded
+
+            QGCButton {
+                objectName: "fleetTakeoffAllButton"
+                Layout.fillWidth: true
+                text: qsTr("TAKEOFF ALL %1 m").arg(fleetController.takeoffAltitude)
+                backgroundColor: qgcPal.colorGreen
+                textColor: qgcPal.mapWidgetBorderDark
+                onClicked: fleetController.takeoffAll()
+            }
+
+            QGCButton {
+                objectName: "fleetRebootAllButton"
+                Layout.fillWidth: true
+                text: qsTr("REBOOT ALL")
+                backgroundColor: qgcPal.colorOrange
+                textColor: qgcPal.mapWidgetBorderDark
+                onClicked: root._confirmReboot()
+            }
+        }
+
+        RowLayout {
+            objectName: "fleetResendRow"
+            Layout.fillWidth: true
+            spacing: root._margin
+            visible: root._expanded
+
+            QGCLabel {
+                text: qsTr("Send")
+            }
+
+            FactTextField {
+                objectName: "fleetAttemptsField"
+                Layout.preferredWidth: root._fieldWidth
+                fact: root._flyViewSettings.fleetCommandAttempts
+            }
+
+            QGCLabel {
+                text: qsTr("times, every")
+            }
+
+            FactTextField {
+                objectName: "fleetIntervalField"
+                Layout.preferredWidth: root._fieldWidth
+                fact: root._flyViewSettings.fleetCommandIntervalSec
+            }
         }
 
         RowLayout {
@@ -310,10 +486,9 @@ Item {
                 text: qsTr("LAND ALL")
                 backgroundColor: qgcPal.colorRed
                 textColor: qgcPal.mapWidgetBorderLight
-                onClicked: root._guidedController.confirmAction(root._guidedController.actionFleetLand, fleetController)
+                onClicked: root._confirmLand()
             }
         }
-
     }
 
     Component.onCompleted: _expanded = QGroundControl.loadBoolGlobalSetting(_expandedSettingsKey, true)

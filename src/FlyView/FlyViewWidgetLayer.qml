@@ -95,6 +95,13 @@ Item {
         anchors.bottom:         bottomRightRowLayout.top
         anchors.bottomMargin:   _margins * 2
         maximumHeight:          parent.height * 0.45
+        confirmOverlay:         fleetConfirmOverlay
+    }
+
+    FleetConfirmOverlay {
+        id:                     fleetConfirmOverlay
+        anchors.fill:           parent
+        z:                      QGroundControl.zOrderTopMost + 2
     }
 
     FlyViewMissionCompleteDialog {
