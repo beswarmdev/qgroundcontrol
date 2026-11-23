@@ -54,6 +54,9 @@ public:
 
     Status status() const { return _result.status; }
 
+    /// Mode the firmware plugin arms the vehicle in for a guided takeoff, empty when it does not switch modes
+    QString takeoffArmFlightMode() const { return _actionFlightModes(GuidedAction::Takeoff).armFlightMode; }
+
     /// Re-evaluates readiness. Vehicle calls this once the firmware's subclass is fully constructed.
     void update();
 

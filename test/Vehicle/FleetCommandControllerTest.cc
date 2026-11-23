@@ -12,6 +12,7 @@
 #include "QmlObjectListModel.h"
 #include "SettingsManager.h"
 #include "Vehicle.h"
+#include "VehicleReadiness.h"
 
 void FleetCommandControllerTest::init()
 {
@@ -134,6 +135,15 @@ void FleetCommandControllerTest::_ignoreUnansweredCommandNoise()
                      QRegularExpression(QStringLiteral("Unable to send command: Waiting on previous response")));
 }
 
+void FleetCommandControllerTest::_ignorePressureSensorNoise()
+{
+    // The airborne transition creates QGCPressure, which warns on hosts without a pressure backend
+    ignoreLogMessage("Utilities.QGCSensors", QtWarningMsg,
+                     QRegularExpression(QStringLiteral("Failed to connect to pressure backend")));
+    ignoreLogMessage("Utilities.QGCSensors", QtWarningMsg,
+                     QRegularExpression(QStringLiteral("Error Initializing Pressure Sensor")));
+}
+
 void FleetCommandControllerTest::_disconnectLinks()
 {
     for (const QPointer<MockLink>& link : std::as_const(_links)) {
@@ -169,6 +179,11 @@ int FleetCommandControllerTest::_attempt(const FleetCommandController& controlle
 int FleetCommandControllerTest::_maxAttempts(const FleetCommandController& controller, const Vehicle* vehicle)
 {
     return _entry(controller, vehicle).value(QStringLiteral("maxAttempts"), -1).toInt();
+}
+
+int FleetCommandControllerTest::_step(const FleetCommandController& controller, const Vehicle* vehicle)
+{
+    return _entry(controller, vehicle).value(QStringLiteral("step"), -1).toInt();
 }
 
 bool FleetCommandControllerTest::_confirmed(const FleetCommandController& controller, const Vehicle* vehicle)
@@ -519,6 +534,161 @@ void FleetCommandControllerTest::_testIntervalFromSettings()
     QVERIFY2(!QTest::qWaitFor([&] { return _attempt(controller, vehicle) >= 2; }, 2500),
              "Second send went out before the configured interval");
     QTRY_COMPARE_WITH_TIMEOUT(_attempt(controller, vehicle), 2, 1000 + TestTimeout::shortMs());
+}
+
+void FleetCommandControllerTest::_testTakeoffAll_data()
+{
+    QTest::addColumn<MAV_AUTOPILOT>("autopilot");
+
+    QTest::newRow("PX4") << MAV_AUTOPILOT_PX4;
+    QTest::newRow("ArduCopter") << MAV_AUTOPILOT_ARDUPILOTMEGA;
+}
+
+void FleetCommandControllerTest::_testTakeoffAll()
+{
+    QFETCH(MAV_AUTOPILOT, autopilot);
+
+    if ((autopilot == MAV_AUTOPILOT_ARDUPILOTMEGA) && !apmFirmwareSupported()) {
+        QSKIP("ArduPilot support not registered in this build");
+    }
+
+    _ignorePressureSensorNoise();
+    MockLink* const firstLink = _startLink(autopilot);
+    Vehicle* const first = _connectVehicle(firstLink, false);
+    QVERIFY(first);
+    MockLink* const secondLink = _startLink(autopilot);
+    Vehicle* const second = _connectVehicle(secondLink, false);
+    QVERIFY(second);
+
+    FleetCommandController controller;
+    QSignalSpy finishedSpy(&controller, &FleetCommandController::finished);
+    QVERIFY(finishedSpy.isValid());
+    firstLink->clearReceivedMavCommandCounts();
+    secondLink->clearReceivedMavCommandCounts();
+
+    controller.takeoffAll();
+    QCOMPARE(controller.activeCommand(), FleetCommandController::Command::Takeoff);
+
+    const int timeoutMs =
+        2 * FleetCommandController::kTakeoffStepTimeoutMs + FleetCommandController::kTakeoffClimbTimeoutMs;
+    const QList<Vehicle*> vehicles{first, second};
+    const QList<MockLink*> links{firstLink, secondLink};
+    for (int i = 0; i < vehicles.count(); i++) {
+        Vehicle* const vehicle = vehicles[i];
+        QTRY_COMPARE_WITH_TIMEOUT(_state(controller, vehicle), int(FleetCommandController::VehicleState::Succeeded),
+                                  timeoutMs);
+        QVERIFY(vehicle->armed());
+        QVERIFY(vehicle->airborne());
+        QCOMPARE(_step(controller, vehicle), int(FleetCommandController::TakeoffStep::Climb));
+        QCOMPARE(vehicle->flightMode(), vehicle->readiness()->takeoffArmFlightMode());
+        QCOMPARE(links[i]->receivedMavCommandCount(MAV_CMD_NAV_TAKEOFF), 1);
+        if (autopilot == MAV_AUTOPILOT_ARDUPILOTMEGA) {
+            QTRY_VERIFY_WITH_TIMEOUT(qAbs(vehicle->altitudeRelative()->rawValue().toDouble() -
+                                          controller.takeoffAltitude()) < 0.5,
+                                     TestTimeout::mediumMs());
+        }
+    }
+
+    QVERIFY(!controller.busy());
+    QCOMPARE(finishedSpy.count(), 1);
+    QCOMPARE(finishedSpy[0][0].value<FleetCommandController::Command>(), FleetCommandController::Command::Takeoff);
+}
+
+void FleetCommandControllerTest::_testTakeoffSkipsAirborneAndUnsupported()
+{
+    if (!apmFirmwareSupported()) {
+        QSKIP("ArduPilot support not registered in this build");
+    }
+
+    // ArduSub has no guided takeoff
+    _ignorePressureSensorNoise();
+    MockLink* const copterLink = _startLink(MAV_AUTOPILOT_ARDUPILOTMEGA);
+    Vehicle* const copter = _connectVehicle(copterLink, false);
+    QVERIFY(copter);
+    Vehicle* const sub = _connectVehicle(MockLink::startAPMArduSubMockLink(), false);
+    QVERIFY(sub);
+
+    FleetCommandController controller;
+    QSignalSpy finishedSpy(&controller, &FleetCommandController::finished);
+    QVERIFY(finishedSpy.isValid());
+
+    controller.takeoffAll();
+    QTRY_COMPARE_WITH_TIMEOUT(_state(controller, copter), int(FleetCommandController::VehicleState::Succeeded),
+                              2 * FleetCommandController::kTakeoffStepTimeoutMs +
+                                  FleetCommandController::kTakeoffClimbTimeoutMs);
+    QCOMPARE(_state(controller, sub), int(FleetCommandController::VehicleState::Unsupported));
+    QCOMPARE(_attempt(controller, sub), 0);
+    QCOMPARE(finishedSpy.count(), 1);
+
+    // The copter is in the air now: a second takeoff leaves it alone and finishes at once
+    copterLink->clearReceivedMavCommandCounts();
+    controller.takeoffAll();
+    QCOMPARE(_state(controller, copter), int(FleetCommandController::VehicleState::Skipped));
+    QCOMPARE(_attempt(controller, copter), 0);
+    QVERIFY(!controller.busy());
+    QCOMPARE(finishedSpy.count(), 2);
+
+    copterLink->waitForWorkerIdle();
+    QCOMPARE(copterLink->receivedMavCommandCount(MAV_CMD_NAV_TAKEOFF), 0);
+}
+
+void FleetCommandControllerTest::_testTakeoffStepTimeoutFails()
+{
+    MockLink* const link = _startLink(MAV_AUTOPILOT_PX4);
+    Vehicle* const vehicle = _connectVehicle(link, false);
+    QVERIFY(vehicle);
+
+    FleetCommandController controller;
+    expectLogMessage("Vehicle.FleetCommandController", QtWarningMsg,
+                     QRegularExpression(QStringLiteral("vehicle: %1 command: .*Takeoff failed at step .*Mode")
+                                            .arg(vehicle->id())));
+
+    link->clearReceivedMavCommandCounts();
+    _setCommLost(link, true);
+    controller.takeoffAll();
+
+    QTRY_COMPARE_WITH_TIMEOUT(_state(controller, vehicle), int(FleetCommandController::VehicleState::Failed),
+                              FleetCommandController::kTakeoffStepTimeoutMs + TestTimeout::shortMs());
+    verifyExpectedLogMessage();
+    QCOMPARE(_step(controller, vehicle), int(FleetCommandController::TakeoffStep::Mode));
+    QVERIFY(!controller.busy());
+    QCOMPARE(link->receivedMavCommandCount(MAV_CMD_COMPONENT_ARM_DISARM), 0);
+    QCOMPARE(link->receivedMavCommandCount(MAV_CMD_NAV_TAKEOFF), 0);
+}
+
+void FleetCommandControllerTest::_testLandCancelsTakeoff()
+{
+    if (!apmFirmwareSupported()) {
+        QSKIP("ArduPilot support not registered in this build");
+    }
+
+    MockLink* const link = _startLink(MAV_AUTOPILOT_ARDUPILOTMEGA);
+    Vehicle* const vehicle = _connectVehicle(link, false);
+    QVERIFY(vehicle);
+
+    FleetCommandController controller;
+    _ignoreUnansweredCommandNoise();
+    link->clearReceivedMavCommandCounts();
+    _setCommLost(link, true);
+    controller.takeoffAll();
+    QTRY_COMPARE_WITH_TIMEOUT(_step(controller, vehicle), int(FleetCommandController::TakeoffStep::Mode),
+                              TestTimeout::shortMs());
+
+    // Land replaces the takeoff, and a disarmed vehicle has nothing to land
+    controller.landAll();
+    QCOMPARE(controller.activeCommand(), FleetCommandController::Command::Land);
+    QCOMPARE(_state(controller, vehicle), int(FleetCommandController::VehicleState::Skipped));
+
+    // With the link back, a leftover takeoff would arm the vehicle within one step timeout
+    _setCommLost(link, false);
+    QVERIFY2(!QTest::qWaitFor(
+                 [&] {
+                     return (link->receivedMavCommandCount(MAV_CMD_COMPONENT_ARM_DISARM) > 0) ||
+                            (link->receivedMavCommandCount(MAV_CMD_NAV_TAKEOFF) > 0);
+                 },
+                 FleetCommandController::kTakeoffStepTimeoutMs + TestTimeout::shortMs()),
+             "The takeoff went on after Land replaced it");
+    QVERIFY(!vehicle->armed());
 }
 
 UT_REGISTER_TEST(FleetCommandControllerTest, TestLabel::Integration, TestLabel::Vehicle)

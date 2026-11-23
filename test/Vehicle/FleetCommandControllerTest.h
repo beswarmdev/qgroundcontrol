@@ -33,6 +33,11 @@ private slots:
     void _testReassertsTargetMode();
     void _testSettingsSnapshotPerCommand();
     void _testIntervalFromSettings();
+    void _testTakeoffAll_data();
+    void _testTakeoffAll();
+    void _testTakeoffSkipsAirborneAndUnsupported();
+    void _testTakeoffStepTimeoutFails();
+    void _testLandCancelsTakeoff();
 
 private:
     MockLink* _startLink(MAV_AUTOPILOT autopilot);
@@ -41,12 +46,14 @@ private:
     void _setAttempts(int attempts);
     void _setInterval(int seconds);
     void _ignoreUnansweredCommandNoise();
+    void _ignorePressureSensorNoise();
     void _disconnectLinks();
 
     static int _intervalMs();
     static int _state(const FleetCommandController& controller, const Vehicle* vehicle);
     static int _attempt(const FleetCommandController& controller, const Vehicle* vehicle);
     static int _maxAttempts(const FleetCommandController& controller, const Vehicle* vehicle);
+    static int _step(const FleetCommandController& controller, const Vehicle* vehicle);
     static bool _confirmed(const FleetCommandController& controller, const Vehicle* vehicle);
     static QVariantMap _entry(const FleetCommandController& controller, const Vehicle* vehicle);
 

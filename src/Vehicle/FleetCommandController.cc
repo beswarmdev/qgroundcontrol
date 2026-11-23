@@ -9,6 +9,8 @@
 #include "QmlObjectListModel.h"
 #include "SettingsManager.h"
 #include "Vehicle.h"
+#include "VehicleReadiness.h"
+#include "VehicleSupports.h"
 
 QGC_LOGGING_CATEGORY(FleetCommandControllerLog, "Vehicle.FleetCommandController")
 
@@ -39,7 +41,7 @@ void FleetCommandController::landAll()
 
 void FleetCommandController::takeoffAll()
 {
-    qCDebug(FleetCommandControllerLog) << "not implemented";
+    _start(Command::Takeoff);
 }
 
 void FleetCommandController::rebootAll()
@@ -57,7 +59,7 @@ void FleetCommandController::cancel()
     for (VehicleEntry& entry : _entries) {
         if (entry.state == VehicleState::Pending) {
             entry.state = VehicleState::Cancelled;
-            QObject::disconnect(entry.modeConnection);
+            _disconnectEntry(entry);
         }
     }
 
@@ -70,36 +72,25 @@ void FleetCommandController::_start(Command command)
     // A command in progress is replaced without reporting it as finished
     _releaseEntries();
 
-    FlyViewSettings* const settings = SettingsManager::instance()->flyViewSettings();
-    _maxAttempts = settings ? qBound(kMinAttempts, settings->fleetCommandAttempts()->rawValue().toInt(), kMaxAttempts)
-                            : kMinAttempts;
-    const int intervalSec =
-        settings ? qBound(kMinIntervalSec, settings->fleetCommandIntervalSec()->rawValue().toInt(), kMaxIntervalSec)
-                 : kMinIntervalSec;
-    _attemptTimer->setInterval(intervalSec * 1000);
+    const bool resends = ((command == Command::RTL) || (command == Command::Land));
+    _maxAttempts = 1;
+    if (resends) {
+        FlyViewSettings* const settings = SettingsManager::instance()->flyViewSettings();
+        _maxAttempts = settings
+                           ? qBound(kMinAttempts, settings->fleetCommandAttempts()->rawValue().toInt(), kMaxAttempts)
+                           : kMinAttempts;
+        const int intervalSec = settings ? qBound(kMinIntervalSec, settings->fleetCommandIntervalSec()->rawValue().toInt(),
+                                                  kMaxIntervalSec)
+                                         : kMinIntervalSec;
+        _attemptTimer->setInterval(intervalSec * 1000);
+    }
 
     const QmlObjectListModel* const vehicles = MultiVehicleManager::instance()->vehicles();
     for (int i = 0; vehicles && (i < vehicles->count()); i++) {
         Vehicle* const vehicle = vehicles->value<Vehicle*>(i);
-        if (!vehicle) {
-            continue;
+        if (vehicle) {
+            _entries.insert(vehicle->id(), _classify(command, vehicle));
         }
-
-        const quint32 id = vehicle->id();
-        VehicleEntry entry;
-        entry.vehicle = vehicle;
-        entry.targetMode = (command == Command::Land) ? vehicle->landFlightMode() : vehicle->rtlFlightMode();
-        if (entry.targetMode.isEmpty()) {
-            entry.state = VehicleState::Unsupported;
-        } else if (!vehicle->armed()) {
-            entry.state = VehicleState::Skipped;
-        } else {
-            // A vehicle that is already in the target mode still gets every send
-            entry.confirmed = (vehicle->flightMode() == entry.targetMode);
-            entry.modeConnection = connect(vehicle, &Vehicle::flightModeChanged, this,
-                                           [this, id](const QString& mode) { _flightModeChanged(id, mode); });
-        }
-        _entries.insert(id, entry);
     }
 
     const bool commandChanged = (_activeCommand != command);
@@ -109,7 +100,7 @@ void FleetCommandController::_start(Command command)
     for (const quint32 id : ids) {
         const auto it = _entries.constFind(id);
         if ((it != _entries.constEnd()) && (it->state == VehicleState::Pending)) {
-            _sendAttempt(id);
+            _begin(id);
         }
     }
 
@@ -120,9 +111,62 @@ void FleetCommandController::_start(Command command)
     _updateBusy();
 
     if (_busy) {
-        _attemptTimer->start();
+        if (resends) {
+            _attemptTimer->start();
+        }
     } else {
         emit finished(command);
+    }
+}
+
+FleetCommandController::VehicleEntry FleetCommandController::_classify(Command command, Vehicle* vehicle) const
+{
+    VehicleEntry entry;
+    entry.vehicle = vehicle;
+
+    if (command == Command::Takeoff) {
+        if (!vehicle->supports()->guidedTakeoffWithAltitude()) {
+            entry.state = VehicleState::Unsupported;
+        } else if (vehicle->airborne()) {
+            entry.state = VehicleState::Skipped;
+        } else {
+            entry.attempt = 1;
+        }
+        return entry;
+    }
+
+    entry.targetMode = (command == Command::Land) ? vehicle->landFlightMode() : vehicle->rtlFlightMode();
+    if (entry.targetMode.isEmpty()) {
+        entry.state = VehicleState::Unsupported;
+    } else if (!vehicle->armed()) {
+        entry.state = VehicleState::Skipped;
+    } else {
+        // A vehicle that is already in the target mode still gets every send
+        entry.confirmed = (vehicle->flightMode() == entry.targetMode);
+    }
+    return entry;
+}
+
+void FleetCommandController::_begin(quint32 id)
+{
+    const auto it = _entries.find(id);
+    if ((it == _entries.end()) || !it->vehicle) {
+        return;
+    }
+
+    Vehicle* const vehicle = it->vehicle;
+    if (_activeCommand == Command::Takeoff) {
+        it->takeoffConnections.append(
+            connect(vehicle, &Vehicle::flightModeChanged, this, [this, id]() { _takeoffProgress(id); }));
+        it->takeoffConnections.append(
+            connect(vehicle, &Vehicle::armedChanged, this, [this, id]() { _takeoffProgress(id); }));
+        it->takeoffConnections.append(
+            connect(vehicle, &Vehicle::airborneChanged, this, [this, id]() { _takeoffProgress(id); }));
+        _enterTakeoffStep(id, TakeoffStep::Mode);
+    } else {
+        it->modeConnection = connect(vehicle, &Vehicle::flightModeChanged, this,
+                                     [this, id](const QString& mode) { _flightModeChanged(id, mode); });
+        _sendAttempt(id);
     }
 }
 
@@ -186,6 +230,105 @@ void FleetCommandController::_flightModeChanged(quint32 id, const QString& mode)
     _settle();
 }
 
+void FleetCommandController::_takeoffProgress(quint32 id)
+{
+    const auto it = _entries.find(id);
+    if ((it == _entries.end()) || (it->state != VehicleState::Pending) || !it->vehicle) {
+        return;
+    }
+
+    switch (it->step) {
+        case TakeoffStep::Mode:
+            if (it->vehicle->flightMode() == it->targetMode) {
+                _enterTakeoffStep(id, TakeoffStep::Arm);
+            }
+            break;
+        case TakeoffStep::Arm:
+            if (it->vehicle->armed()) {
+                _enterTakeoffStep(id, TakeoffStep::Climb);
+            }
+            break;
+        case TakeoffStep::Climb:
+            if (it->vehicle->airborne()) {
+                _resolve(id, VehicleState::Succeeded);
+            }
+            break;
+        case TakeoffStep::None:
+            break;
+    }
+
+    _settle();
+}
+
+void FleetCommandController::_enterTakeoffStep(quint32 id, TakeoffStep step)
+{
+    const auto it = _entries.find(id);
+    if ((it == _entries.end()) || !it->vehicle) {
+        return;
+    }
+
+    Vehicle* const vehicle = it->vehicle;
+    it->step = step;
+    switch (step) {
+        case TakeoffStep::Mode: {
+            // The firmware plugin names the mode its own takeoff arms in, so nothing here depends on the autopilot
+            const VehicleReadiness* const readiness = vehicle->readiness();
+            const QString armMode = readiness ? readiness->takeoffArmFlightMode() : QString();
+            if (armMode.isEmpty() || (vehicle->flightMode() == armMode)) {
+                _enterTakeoffStep(id, TakeoffStep::Arm);
+                return;
+            }
+            it->targetMode = armMode;
+            vehicle->setFlightMode(armMode);
+            _startStepTimer(id, kTakeoffStepTimeoutMs);
+            break;
+        }
+        case TakeoffStep::Arm:
+            if (vehicle->armed()) {
+                _enterTakeoffStep(id, TakeoffStep::Climb);
+                return;
+            }
+            // Arming is sent once, never retried
+            vehicle->setArmed(true, false);
+            _startStepTimer(id, kTakeoffStepTimeoutMs);
+            break;
+        case TakeoffStep::Climb:
+            vehicle->guidedModeTakeoff(kTakeoffAltitudeMeters);
+            _startStepTimer(id, kTakeoffClimbTimeoutMs);
+            break;
+        case TakeoffStep::None:
+            break;
+    }
+}
+
+void FleetCommandController::_startStepTimer(quint32 id, int timeoutMs)
+{
+    const auto it = _entries.find(id);
+    if (it == _entries.end()) {
+        return;
+    }
+
+    if (!it->stepTimer) {
+        it->stepTimer = new QTimer(this);
+        it->stepTimer->setSingleShot(true);
+        (void) connect(it->stepTimer, &QTimer::timeout, this, [this, id]() { _stepTimedOut(id); });
+    }
+    it->stepTimer->start(timeoutMs);
+}
+
+void FleetCommandController::_stepTimedOut(quint32 id)
+{
+    const auto it = _entries.find(id);
+    if ((it == _entries.end()) || (it->state != VehicleState::Pending)) {
+        return;
+    }
+
+    qCWarning(FleetCommandControllerLog) << "vehicle:" << id << "command:" << _activeCommand << "failed at step"
+                                         << it->step;
+    _resolve(id, VehicleState::Failed);
+    _settle();
+}
+
 void FleetCommandController::_vehicleRemoved(Vehicle* vehicle)
 {
     if (!vehicle) {
@@ -197,7 +340,7 @@ void FleetCommandController::_vehicleRemoved(Vehicle* vehicle)
         return;
     }
 
-    QObject::disconnect(it->modeConnection);
+    _disconnectEntry(*it);
     _entries.erase(it);
     _settle();
 }
@@ -210,7 +353,22 @@ void FleetCommandController::_resolve(quint32 id, VehicleState state)
     }
 
     it->state = state;
-    QObject::disconnect(it->modeConnection);
+    _disconnectEntry(*it);
+}
+
+void FleetCommandController::_disconnectEntry(VehicleEntry& entry)
+{
+    QObject::disconnect(entry.modeConnection);
+    for (const QMetaObject::Connection& connection : std::as_const(entry.takeoffConnections)) {
+        QObject::disconnect(connection);
+    }
+    entry.takeoffConnections.clear();
+
+    if (entry.stepTimer) {
+        entry.stepTimer->stop();
+        entry.stepTimer->deleteLater();
+        entry.stepTimer = nullptr;
+    }
 }
 
 void FleetCommandController::_settle()
@@ -225,7 +383,8 @@ void FleetCommandController::_settle()
         if (wasBusy) {
             emit finished(_activeCommand);
         }
-    } else if (!_attemptTimer->isActive()) {
+    } else if (((_activeCommand == Command::RTL) || (_activeCommand == Command::Land)) &&
+               !_attemptTimer->isActive()) {
         _attemptTimer->start();
     }
 }
@@ -239,7 +398,7 @@ void FleetCommandController::_publish()
                                                      {QStringLiteral("attempt"), it->attempt},
                                                      {QStringLiteral("maxAttempts"), _maxAttempts},
                                                      {QStringLiteral("confirmed"), it->confirmed},
-                                                     {QStringLiteral("step"), static_cast<int>(TakeoffStep::None)},
+                                                     {QStringLiteral("step"), static_cast<int>(it->step)},
                                                  });
     }
 
@@ -266,8 +425,8 @@ void FleetCommandController::_updateBusy()
 void FleetCommandController::_releaseEntries()
 {
     _attemptTimer->stop();
-    for (const VehicleEntry& entry : std::as_const(_entries)) {
-        QObject::disconnect(entry.modeConnection);
+    for (VehicleEntry& entry : _entries) {
+        _disconnectEntry(entry);
     }
     _entries.clear();
 }

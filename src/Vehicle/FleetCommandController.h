@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QtCore/QList>
 #include <QtCore/QLoggingCategory>
 #include <QtCore/QMap>
 #include <QtCore/QObject>
@@ -94,15 +95,25 @@ private:
         VehicleState state = VehicleState::Pending;
         int attempt = 0;
         bool confirmed = false;
+        TakeoffStep step = TakeoffStep::None;
+        QTimer* stepTimer = nullptr;
         QMetaObject::Connection modeConnection;
+        QList<QMetaObject::Connection> takeoffConnections;
     };
 
     void _start(Command command);
+    VehicleEntry _classify(Command command, Vehicle* vehicle) const;
+    void _begin(quint32 id);
     void _sendAttempt(quint32 id);
     void _attemptWindowElapsed();
     void _flightModeChanged(quint32 id, const QString& mode);
+    void _takeoffProgress(quint32 id);
+    void _enterTakeoffStep(quint32 id, TakeoffStep step);
+    void _startStepTimer(quint32 id, int timeoutMs);
+    void _stepTimedOut(quint32 id);
     void _vehicleRemoved(Vehicle* vehicle);
     void _resolve(quint32 id, VehicleState state);
+    void _disconnectEntry(VehicleEntry& entry);
     void _settle();
     void _publish();
     void _updateBusy();
